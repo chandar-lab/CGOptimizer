@@ -40,3 +40,13 @@ class ClassDecoder(nn.Module):
         x = self.fc2(x)
         output = F.log_softmax(x, dim=1)
         return output
+
+class LogisticRegression(torch.nn.Module):
+    def __init__(self, input_dim, output_dim,data = 'image'):
+        super(LogisticRegression, self).__init__()
+        self.linear = torch.nn.Linear(input_dim, output_dim)
+        self.data = data
+
+    def forward(self, x):
+        outputs = self.linear(x)
+        return outputs, None

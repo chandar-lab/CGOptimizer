@@ -1,6 +1,8 @@
 import math
 import torch
-from .optimizer import Optimizer, required
+from torch.optim import Optimizer
+from .priorityDict import priority_dict
+from copy import deepcopy
 
 
 class SGD(Optimizer):
@@ -38,10 +40,8 @@ class SGD(Optimizer):
         The Nesterov version is analogously modified.
     """
 
-    def __init__(self, params, lr=required, momentum=0, dampening=0,
+    def __init__(self, params, lr=0.001, momentum=0, dampening=0,
                  weight_decay=0, nesterov=False):
-        if lr is not required and lr < 0.0:
-            raise ValueError("Invalid learning rate: {}".format(lr))
         if momentum < 0.0:
             raise ValueError("Invalid momentum value: {}".format(momentum))
         if weight_decay < 0.0:
@@ -96,13 +96,6 @@ class SGD(Optimizer):
 
         return loss
 
-class TopK:
-    '''
-    Maintains topk values.
-    Allows insert, getAgg.
-
-    '''
-    def __init__(self,)
 
 class SGD_C(Optimizer):
     r"""Implements stochastic gradient descent (optionally with momentum).
@@ -139,11 +132,11 @@ class SGD_C(Optimizer):
         The Nesterov version is analogously modified.
     """
 
-    def __init__(self, params, lr=0.001, momentum=0, dampening=0,
+    def __init__(self, params, lr=0.001, kappa=0.99, dampening=0.9,
                  weight_decay=0, nesterov =False, topC=10):
 
-        defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
-                        weight_decay=weight_decay, topC=topC)
+        defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
+                        weight_decay=weight_decay, nesterov = nesterov, gradHist = {},topC=topC)
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(SGD_C, self).__init__(params, defaults)
@@ -163,18 +156,32 @@ class SGD_C(Optimizer):
 
         for group in self.param_groups:
             weight_decay = group['weight_decay']
-            momentum = group['momentum']
+            kappa = group['kappa']
             dampening = group['dampening']
             nesterov = group['nesterov']
+            topc = group['topC']
 
             for p in group['params']:
                 if p.grad is None:
                     continue
                 d_p = p.grad.data
+                d_p_norm = d_p.norm()
                 if weight_decay != 0:
                     d_p = d_p.add(weight_decay, p.data)
-                if momentum != 0:
+                if kappa != 0:
+                    #param_state = self.state[p]
                     param_state = self.state[p]
+                    if 'critical gradients' not in param_state:
+                        buf = param_state['critical gradients'] = priority_dict()
+                        buf.sethyper(decay_rate = dampening, K = topc)
+                        buf[d_p_norm] = deepcopy(d_p)
+                    else:
+                        buf = param_state['critical gradients']
+                        if buf.isFull():
+                            if d_p_norm > buf.pokesmallest():
+                                buf[d_p_norm] = deepcopy(d_p)
+                        else:
+                            buf[d_p_norm] = deepcopy(d_p)
                     # Critical Gradients
                     # x_new = x_old - lr * grad
                     # x_new = x_old - lr * (momentum * grad_<t + (1-dampening) * grad_t)
@@ -182,21 +189,19 @@ class SGD_C(Optimizer):
                     # CG method:
                     # x_new = x_old - lr * (momentum * grad_CG + (1-dampening) * grad_t)
                     # grad_CG <- topk gradients
-                    if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
-                    else:
-                        buf = param_state['momentum_buffer']
-                        buf.mul_(momentum).add_(1 - dampening, d_p)
+                    buf_ = buf.gradsum()
+                    buf_.mul_(kappa).add_(1 - dampening, d_p)
                     if nesterov:
-                        d_p = d_p.add(momentum, buf)
+                        d_p = d_p.add(momentum, buf_)
                     else:
-                        d_p = buf
+                        d_p = buf_
+                    buf.decay()
 
                 p.data.add_(-group['lr'], d_p)
 
         return loss
 
-class Adam(Optimizer):
+class Adam_C(Optimizer):
     r"""Implements Adam algorithm.
     It has been proposed in `Adam: A Method for Stochastic Optimization`_.
     Arguments:
