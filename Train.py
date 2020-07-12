@@ -1,11 +1,11 @@
 from torchtext import data
 from Model.RNN import RecurrentEncoder, Encoder, AttnDecoder, Decoder
 #from Model.Transformer import TransformerModel
-from Model.Convnets import ConvNetEncoder, ClassDecoder, LogisticRegression
+from Model.Convnets import ConvNetEncoder, ClassDecoder, LogisticRegression, FCLayer
 #from DatasetUtils.DataIterator import MultiWoZ, PersonaChat
 import torch.optim as optim
 from Utils.Eval_metric import getBLEU
-from optimizers.optim import SGD_C, SGD
+from optimizers.optim import SGD_C, SGD, Adam_C, Adam
 #from Utils.optim import GradualWarmupScheduler
 #from Utils.TransformerUtils import create_masks
 from EncoderDecoder import EncoderDecoder
@@ -40,7 +40,7 @@ parser.add_argument('--model',type=str,default='convnet')
 parser.add_argument('--dataset',type=str,default='mnist')
 parser.add_argument('--batch_size',type=int,default=64)
 parser.add_argument('--seed', type=int, default=100)
-parser.add_argument('--kappa', type=float, default = 0.99)
+parser.add_argument('--kappa', type=float, default = 0.99)#0.99
 parser.add_argument('--topC', type=int, default = 10)
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--gamma', type=float, default=0.7)
@@ -97,7 +97,7 @@ def train(model, iterator, optimizer, criterion, clip, itos_vocab=None, itos_con
 
             # backward pass
         elif model.data == 'image':
-            src = batch[0].reshape(-1, 784)
+            src = batch[0]
             trg = batch[1]
             output, hidden = model(src)
             loss = criterion(output, trg)
@@ -162,7 +162,7 @@ def evaluate(model, iterator, criterion, itos_vocab = None, itos_context_id = No
                 # trg shape shape should be [(sequence_len - 1) * batch_size]
                 # output shape should be [(sequence_len - 1) * batch_size, output_dim]
             elif model.data == 'image':
-                src = batch[0].reshape(-1, 784)
+                src = batch[0]
                 trg = batch[1]
                 total += trg.size(0)
                 output, hidden = model(src)
@@ -235,17 +235,11 @@ dropout = args.transformer_dropout # 0.2 the dropout value
 
 # encoder
 if args.model == 'LR':
-    if args.dataset == 'mnist':
-        model = LogisticRegression(784,10)
-    if args.optimizer == 'SGD':
-        optimizer = SGD(model.parameters(),lr = args.lr)
-    elif args.optimizer == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr = args.lr)
-    elif args.optimizer == 'Adadelta':
-        optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
-    elif args.optimizer == 'SGD_C':
-        optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
-    criterion = nn.CrossEntropyLoss().to(device)
+    model = LogisticRegression(784,10)
+    itos_context_id = None
+    itos_vocab = None
+elif args.model == 'NeuralNet':
+    model = FCLayer()
     itos_context_id = None
     itos_vocab = None
 elif args.model == 'convnet':
@@ -254,7 +248,6 @@ elif args.model == 'convnet':
     model = EncoderDecoder(enc,dec,data='image')
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    criterion = nn.CrossEntropyLoss().to(device)
     itos_context_id = None
     itos_vocab = None
 elif args.model == 'seq2seq':
@@ -263,37 +256,49 @@ elif args.model == 'seq2seq':
     model = EncoderDecoder(enc, dec, attn = False).to(device)
     optimizer = optim.Adam(model.parameters())
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
 elif args.model == 'hred':
     enc = RecurrentEncoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT).to(device)
     dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
     model = EncoderDecoder(enc, dec, attn = True).to(device)
     optimizer = optim.Adam(model.parameters())
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
 elif args.model == 'seq2seq_attn':
     enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, HRED_N_LAYERS, ENC_DROPOUT).to(device)
     dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, HRED_N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
     model = EncoderDecoder(enc, dec, attn = True).to(device)
     optimizer = optim.Adam(model.parameters())
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
 elif args.model == 'bilstm_attn':
     enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT, bi_directional = True).to(device)
     dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
     model = EncoderDecoder(enc, dec, attn = True).to(device)
     optimizer = optim.Adam(model.parameters())
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
 elif args.model == 'transformer':
     model = TransformerModel(INPUT_DIM, emsize, nhead, nlayers, dropout).to(device).to(device)
     optimizer = optim.Adam(model.parameters(), lr = 0.001)
     scheduler = GradualWarmupScheduler(optimizer, multiplier=8, total_epoch=2)
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
 else:
     print('Error: Model Not There')
     sys.exit(0)
 
+if args.dataset == 'mnist':
+    if args.optimizer == 'SGD':
+        optimizer = SGD(model.parameters(),lr = args.lr)
+    elif args.optimizer == 'SGDM_C':
+        optimizer = SGD_C(model.parameters(),lr = args.lr, momentum = 0.9, kappa = args.kappa, topC = args.topC)
+    elif args.optimizer == 'SGDM':
+        optimizer = SGD(model.parameters(),lr = args.lr, momentum = 0.9)
+    elif args.optimizer == 'Adam_C':
+        optimizer = Adam_C(model.parameters(), lr = args.lr, kappa = args.kappa, topC = args.topC)
+    elif args.optimizer == 'Adam':
+        optimizer = Adam(model.parameters(), lr = args.lr)
+    elif args.optimizer == 'SGD_C':
+        optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
+    criterion = nn.CrossEntropyLoss().to(device)
+
+else:
+    criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
 # loss function calculates the average loss per token
 # passing the <pad> token to ignore_idx argument, we will ignore loss whenever the target token is <pad>
 
