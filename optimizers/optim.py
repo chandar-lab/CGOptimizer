@@ -168,22 +168,22 @@ class SGD_C(Optimizer):
                     continue
                 d_p = p.grad.data
                 d_p_norm = d_p.norm()
-                buf_ = None
+                crit_buf_ = None
                 if weight_decay != 0:
                     d_p = d_p.add(weight_decay, p.data)
                 if kappa != 0:
                     param_state = self.state[p]
                     if 'critical gradients' not in param_state:
-                        buf = param_state['critical gradients'] = priority_dict()
-                        buf.sethyper(decay_rate = decay, K = topc)
-                        buf[d_p_norm] = deepcopy(d_p)
+                        crit_buf = param_state['critical gradients'] = priority_dict()
+                        crit_buf.sethyper(decay_rate = decay, K = topc)
+                        crit_buf[d_p_norm] = deepcopy(d_p)
                     else:
-                        buf = param_state['critical gradients']
+                        crit_buf = param_state['critical gradients']
                         if buf.isFull():
-                            if d_p_norm > buf.pokesmallest():
-                                buf[d_p_norm] = deepcopy(d_p)
+                            if d_p_norm > crit_buf.pokesmallest():
+                                crit_buf[d_p_norm] = deepcopy(d_p)
                         else:
-                            buf[d_p_norm] = deepcopy(d_p)
+                            crit_buf[d_p_norm] = deepcopy(d_p)
                     # Critical Gradients
                     # x_new = x_old - lr * grad
                     # x_new = x_old - lr * (momentum * grad_<t + (1-dampening) * grad_t)
@@ -191,24 +191,24 @@ class SGD_C(Optimizer):
                     # CG method:
                     # x_new = x_old - lr * (momentum * grad_CG + (1-dampening) * grad_t)
                     # grad_CG <- topk gradients
-                    buf_ = buf.gradsum()
-                    buf_.mul_(kappa)
-                    buf.decay()
+                    crit_buf_ = crit_buf.gradsum()
+                    crit_buf_.mul_(kappa)
+                    crit_buf.decay()
                 if momentum != 0:
                     param_state = self.state[p]
                     if 'momentum_buffer' not in param_state:
-                        buf_temp = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
                     else:
-                        buf_temp = param_state['momentum_buffer']
-                        buf_temp.mul_(momentum).add_(1 - dampening, d_p)
+                        buf = param_state['momentum_buffer']
+                        buf.mul_(momentum).add_(1 - dampening, d_p)
                     if nesterov:
-                        d_p = d_p.add(momentum, buf_temp)
+                        d_p = d_p.add(momentum, buf)
                     else:
-                        d_p = buf_temp
-                    if type(buf_) != type(None):
-                        d_p.add_(buf_)
+                        d_p = buf
                 else:
                     d_p = buf_
+                if type(crit_buf_) != type(None):
+                    d_p.add_(crit_buf_)
 
                 p.data.add_(-group['lr'], d_p)
 
