@@ -179,7 +179,7 @@ class SGD_C(Optimizer):
                         crit_buf[d_p_norm] = deepcopy(d_p)
                     else:
                         crit_buf = param_state['critical gradients']
-                        if buf.isFull():
+                        if crit_buf.isFull():
                             if d_p_norm > crit_buf.pokesmallest():
                                 crit_buf[d_p_norm] = deepcopy(d_p)
                         else:
@@ -205,9 +205,7 @@ class SGD_C(Optimizer):
                         d_p = d_p.add(momentum, buf)
                     else:
                         d_p = buf
-                else:
-                    d_p = buf_
-                if type(crit_buf_) != type(None):
+                if kappa != 0:
                     d_p.add_(crit_buf_)
 
                 p.data.add_(-group['lr'], d_p)
@@ -329,7 +327,7 @@ class Adam_C(Optimizer):
                     buf_ = state['critical gradients'].gradsum()
                     step_size = group['lr'] / bias_correction1
                     p.addcdiv_(-step_size, exp_avg, denom)
-                    p.add_(group['lr']*0.1,buf_)
+                    p.add_(group['lr']*kappa,buf_)
                     #state['critical gradients'].decay()
 
                 else:
