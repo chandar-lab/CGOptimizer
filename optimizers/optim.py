@@ -1,5 +1,8 @@
 import math
 import torch
+#import sys
+#import os
+#sys.path.append(os.path.expanduser('~/Documents/CriticalGradientOptimization/optimizers'))
 from torch.optim import Optimizer
 from .priorityDict import priority_dict
 from copy import deepcopy
@@ -52,11 +55,18 @@ class SGD(Optimizer):
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(SGD, self).__init__(params, defaults)
+        self.resetOfflineStats()
 
     def __setstate__(self, state):
         super(SGD, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('nesterov', False)
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -132,14 +142,21 @@ class SGD_C(Optimizer):
         The Nesterov version is analogously modified.
     """
 
-    def __init__(self, params, lr=0.001, kappa=0.99, dampening=0.9,
-                 weight_decay=0, momentum = 0., decay = 0.9, nesterov =False, topC=10):
+    def __init__(self, params, lr=0.001, kappa=0.99, dampening=0.,
+                 weight_decay=0, momentum = 0., decay = 0.99, nesterov =False, topC=10):
 
         defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
                         weight_decay=weight_decay, momentum = 0., decay = decay, nesterov = nesterov, gradHist = {},topC=topC)
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(SGD_C, self).__init__(params, defaults)
+        self.resetOfflineStats()
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
 
     def __setstate__(self, state):
         super(SGD_C, self).__setstate__(state)
@@ -181,7 +198,10 @@ class SGD_C(Optimizer):
                         crit_buf = param_state['critical gradients']
                         if crit_buf.isFull():
                             if d_p_norm > crit_buf.pokesmallest():
+                                self.offline_grad['yes'] +=1
                                 crit_buf[d_p_norm] = deepcopy(d_p)
+                            else:
+                                self.offline_grad['no'] +=1
                         else:
                             crit_buf[d_p_norm] = deepcopy(d_p)
                     # Critical Gradients
@@ -194,19 +214,23 @@ class SGD_C(Optimizer):
                     crit_buf_ = crit_buf.gradsum()
                     crit_buf_.mul_(kappa)
                     crit_buf.decay()
-                if momentum != 0:
-                    param_state = self.state[p]
-                    if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
-                    else:
-                        buf = param_state['momentum_buffer']
-                        buf.mul_(momentum).add_(1 - dampening, d_p)
-                    if nesterov:
-                        d_p = d_p.add(momentum, buf)
-                    else:
-                        d_p = buf
-                if kappa != 0:
-                    d_p.add_(crit_buf_)
+                # if momentum != 0:
+                #     param_state = self.state[p]
+                #     if 'momentum_buffer' not in param_state:
+                #         buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                #     else:
+                #         buf = param_state['momentum_buffer']
+                #         buf.mul_(momentum).add_(1 - dampening, d_p)
+                #     if nesterov:
+                #         d_p = d_p.add(momentum, buf)
+                #     else:
+                #         d_p = buf
+                if nesterov:
+                    d_p = d_p.add(momentum, buf)
+                else:
+                    d_p = crit_buf_
+                # if kappa != 0:
+                #     p.data.add_(-group['kappa'],crit_buf_)
 
                 p.data.add_(-group['lr'], d_p)
 
@@ -233,7 +257,7 @@ class Adam_C(Optimizer):
         https://openreview.net/forum?id=ryQu7f-RZ
     """
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, decay = 0.1, kappa = 0.99, topC = 10,
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, decay = 0.95, kappa = 0.99, topC = 10,
                  weight_decay=0, amsgrad=False): #decay=0.9
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -246,6 +270,13 @@ class Adam_C(Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, amsgrad=amsgrad, kappa = kappa, topC = topC, decay = decay)
         super(Adam_C, self).__init__(params, defaults)
+        self.resetOfflineStats()
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
 
     def __setstate__(self, state):
         super(Adam_C, self).__setstate__(state)
@@ -296,7 +327,10 @@ class Adam_C(Optimizer):
                     if kappa > 0.:
                         if state['critical gradients'].isFull():
                             if grad_norm > state['critical gradients'].pokesmallest():
+                                self.offline_grad['yes'] +=1
                                 state['critical gradients'][grad_norm] = deepcopy(grad)
+                            else:
+                                self.offline_grad['no'] +=1
                         else:
                             state['critical gradients'][grad_norm] = deepcopy(grad)
 
@@ -308,7 +342,8 @@ class Adam_C(Optimizer):
                 state['step'] += 1
                 bias_correction1 = 1 - beta1 ** state['step']
                 bias_correction2 = 1 - beta2 ** state['step']
-
+                if kappa > 0.:
+                    grad = state['critical gradients'].gradsum()
                 if group['weight_decay'] != 0:
                     grad = grad.add(group['weight_decay'], p.data)
 
@@ -323,17 +358,10 @@ class Adam_C(Optimizer):
                 else:
                     denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
 
-                if kappa > 0.:
-                    buf_ = state['critical gradients'].gradsum()
-                    step_size = group['lr'] / bias_correction1
-                    p.addcdiv_(-step_size, exp_avg, denom)
-                    p.add_(group['lr']*kappa,buf_)
-                    #state['critical gradients'].decay()
+                step_size = group['lr'] / bias_correction1
+                state['critical gradients'].decay()
 
-                else:
-                    step_size = group['lr'] / bias_correction1
-
-                    p.addcdiv_(-step_size, exp_avg, denom)
+                p.addcdiv_(-step_size, exp_avg, denom)
 
 
         return loss
@@ -377,11 +405,18 @@ class Adam(Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, amsgrad=amsgrad)
         super(Adam, self).__init__(params, defaults)
+        self.resetOfflineStats()
 
     def __setstate__(self, state):
         super(Adam, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -401,7 +436,6 @@ class Adam(Optimizer):
                 if p.grad is None:
                     continue
                 grad = p.grad
-                print(grad.norm())
                 if grad.is_sparse:
                     raise RuntimeError('Adam does not support sparse gradients, please consider SparseAdam instead')
                 amsgrad = group['amsgrad']
@@ -417,7 +451,7 @@ class Adam(Optimizer):
                     state['exp_avg_sq'] = torch.zeros_like(p)#, memory_format=torch.preserve_format)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                        state['max_exp_avg_sq'] = torch.zeros_like(p)#, memory_format=torch.preserve_format)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
                 if amsgrad:

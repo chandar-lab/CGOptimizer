@@ -17,7 +17,7 @@ args = parser.parse_args()
 def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
     #mapdict = {20:'Baseline', 22: 'BERT', 30: 'fastText', 31: 'GloVe'}#{2:'Baseline', 1:'1E-3',4:'1E0'}#{2:'Baseline', 1: '1E-3', 0: '1E-2',3: '1E-1', 4: '1E0', 5:'1E1', 6:'1E2'}
     seeds = ['100']#,'101','102']
-    lr = ['0.0001']
+    lr = ['0.0003','0.0001']
     topC = ['3']
     kappa = ['0.99']
     fieldnames=['Model','Dataset','Optimizer','Epoch','Train Loss','Val. Loss','Val. Accuracy']
@@ -41,7 +41,7 @@ def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
                     writer.writerow(dict([
                     ('Model',model),
                     ('Dataset',args.dataset),
-                    ('Optimizer',opt),
+                    ('Optimizer',opt+l),
                     ('Epoch',ep),
                     ('Train Loss',line[2].split()[-1]),
                     ('Val. Loss',line[3].split()[-1]),
@@ -52,16 +52,18 @@ def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
     target.close()
     return fieldnames
 
-def createGraph(yrange=[5,20], model = 'model', dataset = 'MNIST',filename = 'results_valid.csv', graphparam = 'METEOR', save_file = 'test'):
+def createGraph(yrange=[0.0,0.5], model = 'model', dataset = 'MNIST',filename = 'results_valid.csv', graphparam = 'METEOR', save_file = 'test'):
     #plt.ylim(yrange[0],yrange[1])
+    if 'oss' in graphparam:
+        plt.ylim(yrange[0],yrange[1])
     sns.lineplot(x = 'Epoch', y =graphparam, hue = 'Optimizer',data = pd.read_csv(filename))
     plt.title('Perf. of '+model+' on' +dataset + ' dataset')
     plt.savefig(save_file)
     plt.close()
 
 if __name__ == '__main__':
-    Opts = [('SGD_C','SGD'),('Adam_C','Adam')]#,('SGDM_C','SGDM')]
-    models = ['convnet']#'NeuralNet','LR']
+    Opts = [['SGD_C']]#,('Adam_C','Adam')]#,('SGDM_C','SGDM')]
+    models = ['NeuralNet']#,'LR']
     for model in models:
         print(model)
         for opt_ in Opts:

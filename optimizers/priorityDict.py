@@ -36,7 +36,7 @@ class priority_dict(dict):
 
 
     def _rebuild_heap(self):
-        #self._heap = [(k, v) for k, v in self.items()]
+        self._heap = [(k, v) for k, v in self._heap if k > 0.0]
         heapify(self._heap)
         if not self.isEmpty() and self.isFull():
             self._reorder()
@@ -68,9 +68,11 @@ class priority_dict(dict):
         """
 
         sum = torch.clone(self._heap[0][1])
+        cnt = 1.
         for _,v in self._heap[1:]:
             sum.add_(v)
-        return sum
+            cnt += 1.
+        return sum#.div_(cnt)
 
     def __getitem__(self,key):
 

@@ -1,1 +1,6 @@
 Results/
+*__pycache__/*
+*.DS_store
+*.png
+*.csv
+*.pyc

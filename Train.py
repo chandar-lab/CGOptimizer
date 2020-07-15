@@ -23,31 +23,19 @@ import csv
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
+import itertools
+
+from filelock import FileLock
+import ray
+
+ray.init()
 
 # commandline arguments
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--results_path', type=str, default = '.')
-parser.add_argument('--s2s_hidden_size', type=int, default = 256)
-parser.add_argument('--s2s_embedding_size',type=int, default = 128)
-parser.add_argument('--transformer_dropout',type=float, default = 0.2)
-parser.add_argument('--transformer_hidden_dim',type=int, default = 512)
-parser.add_argument('--transformer_embedding_dim',type=int, default = 512)
-parser.add_argument('--transformer_n_layers',type=int, default = 2)
-parser.add_argument('--transformer_n_head',type=int, default = 2)
-parser.add_argument('--optimizer',type=str,default='SGD')
-parser.add_argument('--model',type=str,default='convnet')
-parser.add_argument('--dataset',type=str,default='mnist')
-parser.add_argument('--batch_size',type=int,default=64)
-parser.add_argument('--seed', type=int, default=100)
-parser.add_argument('--kappa', type=float, default = 0.99)#0.99
-parser.add_argument('--topC', type=int, default = 10)
-parser.add_argument('--lr', type=float, default=0.0001)
-parser.add_argument('--gamma', type=float, default=0.7)
-
 args = parser.parse_args()
-
-np.random.seed(args.seed)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#np.random.seed(args.seed)
 def train(model, iterator, optimizer, criterion, clip, itos_vocab=None, itos_context_id=None):
     ''' Training loop for the model to train.
     Args:
@@ -63,9 +51,11 @@ def train(model, iterator, optimizer, criterion, clip, itos_vocab=None, itos_con
     model.train()
     # loss
     epoch_loss = 0
+    S = {'yes':0,'no':0}
     id_to_hidden = {}
     # TODO:  convert the hiddenstate to string and save it as text file
     for i, batch in enumerate(iterator):
+        stats = None
         if model.data == 'text':
             src = batch.Context.to(device)
             trg = batch.Target.to(device)
@@ -97,7 +87,7 @@ def train(model, iterator, optimizer, criterion, clip, itos_vocab=None, itos_con
 
             # backward pass
         elif model.data == 'image':
-            src = batch[0]
+            src = batch[0].view(-1,784)
             trg = batch[1]
             output, hidden = model(src)
             loss = criterion(output, trg)
@@ -108,10 +98,13 @@ def train(model, iterator, optimizer, criterion, clip, itos_vocab=None, itos_con
 
         # update the parameters
         optimizer.step()
-
+        stats = optimizer.getOfflineStats()
+        if stats:
+            for k,v in stats.items():
+                S[k]+=v
         epoch_loss += loss.item()
     # return the average loss
-    return epoch_loss / len(iterator)
+    return epoch_loss / len(iterator),S
 
 def evaluate(model, iterator, criterion, itos_vocab = None, itos_context_id = None, sample_saver = None):
     ''' Evaluation loop for the model to evaluate.
@@ -162,7 +155,7 @@ def evaluate(model, iterator, criterion, itos_vocab = None, itos_context_id = No
                 # trg shape shape should be [(sequence_len - 1) * batch_size]
                 # output shape should be [(sequence_len - 1) * batch_size, output_dim]
             elif model.data == 'image':
-                src = batch[0]
+                src = batch[0].view(-1,784)
                 trg = batch[1]
                 total += trg.size(0)
                 output, hidden = model(src)
@@ -175,155 +168,250 @@ def evaluate(model, iterator, criterion, itos_vocab = None, itos_context_id = No
             epoch_correct += correct.item()
     return epoch_loss / len(iterator), 100. * epoch_correct/ total
 
+@ray.remote
+def HyperEvaluate(config):
+    print(config)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--node-ip-address=')#,192.168.2.19
+    parser.add_argument('--node-manager-port=')
+    parser.add_argument('--object-store-name=')
+    parser.add_argument('--raylet-name=')#/tmp/ray/session_2020-07-15_12-00-45_292745_38156/sockets/raylet
+    parser.add_argument('--redis-address=')#192.168.2.19:6379
+    parser.add_argument('--config-list=',action='store_true')#
+    parser.add_argument('--temp-dir=')#/tmp/ray
+    parser.add_argument('--redis-password=')#5241590000000000
+    parser.add_argument('--results_path', type=str, default = '.')
+    parser.add_argument('--s2s_hidden_size', type=int, default = 256)
+    parser.add_argument('--s2s_embedding_size',type=int, default = 128)
+    parser.add_argument('--transformer_dropout',type=float, default = 0.2)
+    parser.add_argument('--transformer_hidden_dim',type=int, default = 512)
+    parser.add_argument('--transformer_embedding_dim',type=int, default = 512)
+    parser.add_argument('--transformer_n_layers',type=int, default = 2)
+    parser.add_argument('--transformer_n_head',type=int, default = 2)
+    parser.add_argument('--optimizer',type=str,default=config['optim'])
+    parser.add_argument('--model',type=str,default=config['model'])
+    parser.add_argument('--dataset',type=str,default=config['dataset'])
+    parser.add_argument('--batch_size',type=int,default=64)
+    parser.add_argument('--seed', type=int, default=config['seed'])
+    parser.add_argument('--kappa', type=float, default = 1.0)
+    parser.add_argument('--topC', type=int, default = 10)
+    parser.add_argument('--lr', type=float, default=config['lr'])
+    parser.add_argument('--gamma', type=float, default=0.7)
 
-MAX_LENGTH = 101
-BATCH_SIZE = args.batch_size
-if '_C' in args.optimizer:
-    run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr) + '_topC_' + str(args.topC) + '_kappa_'+ str(args.kappa)
-else:
-    run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr)
-if args.dataset == 'MultiWoZ':
-    train_iterator, valid_iterator, test_iterator, pad_idx, INPUT_DIM, itos_vocab, itos_context_id = MultiWoZ(batch_size = BATCH_SIZE ,max_length = MAX_LENGTH)
-elif args.dataset == 'PersonaChat':
-    train_iterator, valid_iterator, pad_idx, INPUT_DIM, itos_vocab, itos_context_id = PersonaChat(batch_size = BATCH_SIZE, max_length = MAX_LENGTH)
-elif args.dataset == 'mnist':
-    transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-        ])
-    dataset1 = datasets.MNIST('../data', train=True, download=True,
-                       transform=transform)
-    dataset2 = datasets.MNIST('../data', train=False,
-                       transform=transform)
-    train_iterator = torch.utils.data.DataLoader(dataset1,batch_size=BATCH_SIZE,
-                                           shuffle=True)
-    valid_iterator = torch.utils.data.DataLoader(dataset2, batch_size=BATCH_SIZE,
-                                           shuffle=True)
-    INPUT_DIM = 10
+    args = parser.parse_args()
 
-N_EPOCHS = 25           # number of epochs
-CLIP = 10               # gradient clip value    # directory name to save the models.
-MODEL_SAVE_PATH = os.path.join('Results', args.dataset, args.model + '_' + args.optimizer,'Model',run_id)
-if not os.path.exists(MODEL_SAVE_PATH):
-    os.makedirs(MODEL_SAVE_PATH)
-SAMPLES_PATH = os.path.join('Results', args.dataset, args.model + '_' + args.optimizer,'Samples',run_id)
-if not os.path.exists(SAMPLES_PATH):
-    os.makedirs(SAMPLES_PATH)
-LOG_FILE_NAME = 'logs.txt'
-logging.basicConfig(filename=os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),
-                        filemode='a+',
-                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                        datefmt='%H:%M:%S',
-                        level=logging.INFO)
-OUTPUT_DIM = INPUT_DIM
-ENC_EMB_DIM = args.s2s_embedding_size # encoder embedding size
-DEC_EMB_DIM = args.s2s_embedding_size   # decoder embedding size (can be different from encoder embedding size)
-HID_DIM = args.s2s_hidden_size       # hidden dimension (must be same for encoder & decoder)
-N_LAYERS = 2        # number of rnn layers (must be same for encoder & decoder)
-HRED_N_LAYERS = 2
-ENC_DROPOUT = 0   # encoder dropout
-DEC_DROPOUT = 0   # decoder dropout (can be different from encoder droput)
-
-#TransformerParameters
-
-emsize = args.transformer_embedding_dim # 200 embedding dimension
-nhid = args.transformer_hidden_dim #200 the dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = args.transformer_n_layers #2 the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = args.transformer_n_head #2 the number of heads in the multiheadattention models
-dropout = args.transformer_dropout # 0.2 the dropout value
-
-
-# encoder
-if args.model == 'LR':
-    model = LogisticRegression(784,10)
-    itos_context_id = None
-    itos_vocab = None
-elif args.model == 'NeuralNet':
-    model = FCLayer()
-    itos_context_id = None
-    itos_vocab = None
-elif args.model == 'convnet':
-    enc = ConvNetEncoder().to(device)
-    dec = ClassDecoder().to(device)
-    model = EncoderDecoder(enc,dec,data='image')
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    itos_context_id = None
-    itos_vocab = None
-elif args.model == 'seq2seq':
-    enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT).to(device)
-    dec = Decoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT).to(device)
-    model = EncoderDecoder(enc, dec, attn = False).to(device)
-    optimizer = optim.Adam(model.parameters())
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-elif args.model == 'hred':
-    enc = RecurrentEncoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT).to(device)
-    dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
-    model = EncoderDecoder(enc, dec, attn = True).to(device)
-    optimizer = optim.Adam(model.parameters())
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-elif args.model == 'seq2seq_attn':
-    enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, HRED_N_LAYERS, ENC_DROPOUT).to(device)
-    dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, HRED_N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
-    model = EncoderDecoder(enc, dec, attn = True).to(device)
-    optimizer = optim.Adam(model.parameters())
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-elif args.model == 'bilstm_attn':
-    enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT, bi_directional = True).to(device)
-    dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
-    model = EncoderDecoder(enc, dec, attn = True).to(device)
-    optimizer = optim.Adam(model.parameters())
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-elif args.model == 'transformer':
-    model = TransformerModel(INPUT_DIM, emsize, nhead, nlayers, dropout).to(device).to(device)
-    optimizer = optim.Adam(model.parameters(), lr = 0.001)
-    scheduler = GradualWarmupScheduler(optimizer, multiplier=8, total_epoch=2)
-else:
-    print('Error: Model Not There')
-    sys.exit(0)
-
-if args.dataset == 'mnist':
-    if args.optimizer == 'SGD':
-        optimizer = SGD(model.parameters(),lr = args.lr)
-    elif args.optimizer == 'SGDM_C':
-        optimizer = SGD_C(model.parameters(),lr = args.lr, momentum = 0.9, kappa = args.kappa, topC = args.topC)
-    elif args.optimizer == 'SGDM':
-        optimizer = SGD(model.parameters(),lr = args.lr, momentum = 0.9)
-    elif args.optimizer == 'Adam_C':
-        optimizer = Adam_C(model.parameters(), lr = args.lr, kappa = args.kappa, topC = args.topC)
-    elif args.optimizer == 'Adam':
-        optimizer = Adam(model.parameters(), lr = args.lr)
-    elif args.optimizer == 'SGD_C':
-        optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
-    criterion = nn.CrossEntropyLoss().to(device)
-
-else:
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
-# loss function calculates the average loss per token
-# passing the <pad> token to ignore_idx argument, we will ignore loss whenever the target token is <pad>
-
-
-best_validation_perf = float('-inf')
-
-for epoch in range(N_EPOCHS):
-    sample_saver_eval = None
-    valid_perf = 'NA'
-    if model.data == 'text':
-        sample_saver_eval = open(os.path.join(SAMPLES_PATH,"samples_valid_" +str(epoch) +'.txt'),'w')
-    train_loss = train(model, train_iterator, optimizer, criterion, CLIP, itos_vocab = itos_vocab, itos_context_id = itos_context_id )
-    valid_loss, valid_perf = evaluate(model, valid_iterator, criterion, itos_vocab = itos_vocab, itos_context_id = itos_context_id, sample_saver = sample_saver_eval)
-    if sample_saver_eval != None:
-        sample_saver_eval.close()
-        valid_perf = getBLEU(sample_saver_eval.name)
-    if model.data == 'text':
-        logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f} | Val. Loss: {valid_loss:.3f} | Val. PPL: {math.exp(valid_loss):7.3f} | Val. BLEU: {valid_perf:7.3f} |')
-        print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f} | Val. Loss: {valid_loss:.3f} | Val. PPL: {math.exp(valid_loss):7.3f} | Val. BLEU: {valid_perf:7.3f} |')
+    torch.manual_seed(args.seed)
+    MAX_LENGTH = 101
+    BATCH_SIZE = args.batch_size
+    if '_C' in args.optimizer:
+        run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr) + '_topC_' + str(args.topC) + '_kappa_'+ str(args.kappa)
     else:
-        logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {valid_loss:.3f} | Val. Accuracy: {valid_perf:7.3f} |')
-        print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {valid_loss:.3f} | Val. Accuracy: {valid_perf:7.3f} |')
-    #torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,args.model+'_'+str(epoch)+'.pt'))
-    #if valid_perf > best_validation_perf:
-    #    best_validation_perf = valid_perf
-    #    torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,args.model+'_best_perf.pt'))
+        run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr)
+    if args.dataset == 'MultiWoZ':
+        train_iterator, valid_iterator, test_iterator, pad_idx, INPUT_DIM, itos_vocab, itos_context_id = MultiWoZ(batch_size = BATCH_SIZE ,max_length = MAX_LENGTH)
+    elif args.dataset == 'PersonaChat':
+        train_iterator, valid_iterator, pad_idx, INPUT_DIM, itos_vocab, itos_context_id = PersonaChat(batch_size = BATCH_SIZE, max_length = MAX_LENGTH)
+    elif args.dataset == 'mnist':
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+            ])
+        with FileLock(os.path.expanduser("~/data.lock")):
+            dataset1 = datasets.MNIST('../data', train=True, download=True,
+                           transform=transform)
+        dataset2 = datasets.MNIST('../data', train=False,
+                           transform=transform)
+        train_iterator = torch.utils.data.DataLoader(dataset1,batch_size=BATCH_SIZE,
+                                               shuffle=True)
+        valid_iterator = torch.utils.data.DataLoader(dataset2, batch_size=BATCH_SIZE,
+                                               shuffle=True)
+        INPUT_DIM = 10
 
-    #scheduler.step()
+    N_EPOCHS = 25           # number of epochs
+    CLIP = 10               # gradient clip value    # directory name to save the models.
+
+    MODEL_SAVE_PATH = os.path.join('Results', args.dataset, args.model + '_' + args.optimizer,'Model',run_id)
+    if not os.path.exists(MODEL_SAVE_PATH):
+        os.makedirs(MODEL_SAVE_PATH)
+    SAMPLES_PATH = os.path.join('Results', args.dataset, args.model + '_' + args.optimizer,'Samples',run_id)
+    if not os.path.exists(SAMPLES_PATH):
+        os.makedirs(SAMPLES_PATH)
+    LOG_FILE_NAME = 'logs.txt'
+    logging.basicConfig(filename=os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),
+                            filemode='a+',
+                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                            datefmt='%H:%M:%S',
+                            level=logging.INFO)
+    OUTPUT_DIM = INPUT_DIM
+    ENC_EMB_DIM = args.s2s_embedding_size # encoder embedding size
+    DEC_EMB_DIM = args.s2s_embedding_size   # decoder embedding size (can be different from encoder embedding size)
+    HID_DIM = args.s2s_hidden_size       # hidden dimension (must be same for encoder & decoder)
+    N_LAYERS = 2        # number of rnn layers (must be same for encoder & decoder)
+    HRED_N_LAYERS = 2
+    ENC_DROPOUT = 0   # encoder dropout
+    DEC_DROPOUT = 0   # decoder dropout (can be different from encoder droput)
+
+    #TransformerParameters
+
+    emsize = args.transformer_embedding_dim # 200 embedding dimension
+    nhid = args.transformer_hidden_dim #200 the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = args.transformer_n_layers #2 the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = args.transformer_n_head #2 the number of heads in the multiheadattention models
+    dropout = args.transformer_dropout # 0.2 the dropout value
+
+
+    # encoder
+    if args.model == 'LR':
+        model = LogisticRegression(784,10)
+        itos_context_id = None
+        itos_vocab = None
+    elif args.model == 'NeuralNet':
+        model = FCLayer()
+        itos_context_id = None
+        itos_vocab = None
+    elif args.model == 'convnet':
+        enc = ConvNetEncoder().to(device)
+        dec = ClassDecoder().to(device)
+        model = EncoderDecoder(enc,dec,data='image')
+        optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+        itos_context_id = None
+        itos_vocab = None
+    elif args.model == 'seq2seq':
+        enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT).to(device)
+        dec = Decoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT).to(device)
+        model = EncoderDecoder(enc, dec, attn = False).to(device)
+        optimizer = optim.Adam(model.parameters())
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    elif args.model == 'hred':
+        enc = RecurrentEncoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT).to(device)
+        dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
+        model = EncoderDecoder(enc, dec, attn = True).to(device)
+        optimizer = optim.Adam(model.parameters())
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    elif args.model == 'seq2seq_attn':
+        enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, HRED_N_LAYERS, ENC_DROPOUT).to(device)
+        dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, HRED_N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
+        model = EncoderDecoder(enc, dec, attn = True).to(device)
+        optimizer = optim.Adam(model.parameters())
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    elif args.model == 'bilstm_attn':
+        enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, ENC_DROPOUT, bi_directional = True).to(device)
+        dec = AttnDecoder(DEC_EMB_DIM, OUTPUT_DIM, HID_DIM, N_LAYERS, DEC_DROPOUT,MAX_LENGTH).to(device)
+        model = EncoderDecoder(enc, dec, attn = True).to(device)
+        optimizer = optim.Adam(model.parameters())
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    elif args.model == 'transformer':
+        model = TransformerModel(INPUT_DIM, emsize, nhead, nlayers, dropout).to(device).to(device)
+        optimizer = optim.Adam(model.parameters(), lr = 0.001)
+        scheduler = GradualWarmupScheduler(optimizer, multiplier=8, total_epoch=2)
+    else:
+        print('Error: Model Not There')
+        sys.exit(0)
+
+    if args.dataset == 'mnist':
+        if args.optimizer == 'SGD':
+            optimizer = SGD(model.parameters(),lr = args.lr)
+        elif args.optimizer == 'SGDM_C':
+            optimizer = SGD_C(model.parameters(),lr = args.lr, momentum = 0.9, kappa = args.kappa, topC = args.topC)
+        elif args.optimizer == 'SGDM':
+            optimizer = SGD(model.parameters(),lr = args.lr, momentum = 0.9)
+        elif args.optimizer == 'Adam_C':
+            optimizer = Adam_C(model.parameters(), lr = args.lr, kappa = args.kappa, topC = args.topC)
+        elif args.optimizer == 'Adam':
+            optimizer = Adam(model.parameters(), lr = args.lr)
+        elif args.optimizer == 'SGD_C':
+            optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
+        criterion = nn.CrossEntropyLoss().to(device)
+
+    else:
+        criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
+    # loss function calculates the average loss per token
+    # passing the <pad> token to ignore_idx argument, we will ignore loss whenever the target token is <pad>
+
+
+    best_validation_perf = float('-inf')
+
+    for epoch in range(N_EPOCHS):
+        sample_saver_eval = None
+        valid_perf = 'NA'
+        if model.data == 'text':
+            sample_saver_eval = open(os.path.join(SAMPLES_PATH,"samples_valid_" +str(epoch) +'.txt'),'w')
+        train_loss,offline_stats = train(model, train_iterator, optimizer, criterion, CLIP, itos_vocab = itos_vocab, itos_context_id = itos_context_id )
+        valid_loss, valid_perf = evaluate(model, valid_iterator, criterion, itos_vocab = itos_vocab, itos_context_id = itos_context_id, sample_saver = sample_saver_eval)
+        off = offline_stats['no']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
+        on = offline_stats['yes']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
+        if sample_saver_eval != None:
+            sample_saver_eval.close()
+            valid_perf = getBLEU(sample_saver_eval.name)
+        if model.data == 'text':
+            logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f} | Val. Loss: {valid_loss:.3f} | Val. PPL: {math.exp(valid_loss):7.3f} | Val. BLEU: {valid_perf:7.3f} |')
+            #print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f} | Val. Loss: {valid_loss:.3f} | Val. PPL: {math.exp(valid_loss):7.3f} | Val. BLEU: {valid_perf:7.3f} |')
+        else:
+            logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {valid_loss:.3f} | Val. Accuracy: {valid_perf:7.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
+            #print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {valid_loss:.3f} | Val. Accuracy: {valid_perf:7.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
+        optimizer.resetOfflineStats()
+        #torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,args.model+'_'+str(epoch)+'.pt'))
+        if valid_perf > best_validation_perf:
+           best_validation_perf = valid_perf
+           torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,args.model+'_best_model.pt'))
+
+        #scheduler.step()
+    return best_validation_perf
+
+t_models = ['LR']
+t_seeds = [100,101,102,103,104]
+t_dataset = ['mnist']
+t_optim = ['SGD','SGDM','Adam']
+t_lr = [1e-2,1e-3,1e-4]
+
+best_hyperparameters = None
+best_accuracy = 0
+# A list holding the object IDs for all of the experiments that we have
+# launched but have not yet been processed.
+remaining_ids = []
+# A dictionary mapping an experiment's object ID to its hyperparameters.
+# hyerparameters used for that experiment.
+hyperparameters_mapping = {}
+
+for s,l,d,m,o in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim):
+    config = {}
+    config['model'] = m
+    config['seed'] = s
+    config['lr'] = l
+    config['dataset'] =d
+    config['optim'] = o
+    accuracy_id = HyperEvaluate.remote(config)
+    remaining_ids.append(accuracy_id)
+    hyperparameters_mapping[accuracy_id] = config
+
+###########################################################################
+# Process each hyperparameter and corresponding accuracy in the order that
+# they finish to store the hyperparameters with the best accuracy.
+
+# Fetch and print the results of the tasks in the order that they complete.
+
+while remaining_ids:
+    # Use ray.wait to get the object ID of the first task that completes.
+    done_ids, remaining_ids = ray.wait(remaining_ids)
+    # There is only one return result by default.
+    result_id = done_ids[0]
+
+    hyperparameters = hyperparameters_mapping[result_id]
+    accuracy = ray.get(result_id)
+    print("""We achieve accuracy {:7.2f}% with
+        learning_rate: {:.4}
+        seed: {}
+        Optimizer: {}
+      """.format(accuracy, hyperparameters["lr"],
+                 hyperparameters["seed"], hyperparameters["optim"]))
+
+# Record the best performing set of hyperparameters.
+# print("""Best accuracy over {} trials was {:.3} with
+#       learning_rate: {:.2}
+#       batch_size: {}
+#       momentum: {:.2}
+#       """.format(num_evaluations, 100 * best_accuracy,
+#                  best_hyperparameters["learning_rate"],
+#                  best_hyperparameters["batch_size"],
+#                  best_hyperparameters["momentum"]))
