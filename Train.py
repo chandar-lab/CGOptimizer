@@ -368,8 +368,8 @@ def HyperEvaluate(config):
 t_models = ['NeuralNet']
 t_seeds = [100,101,102,103,104]
 t_dataset = ['mnist']
-t_optim = ['SGD','SGDM','Adam']
-t_lr = [1e-2,1e-3,1e-4]
+t_optim = ['SGD']#,'SGDM','Adam']
+t_lr = [1e-2]#,1e-3,1e-4]
 
 best_hyperparameters = None
 best_accuracy = 0
