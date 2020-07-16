@@ -15,7 +15,7 @@ from optimizers.optim import SGD_C, SGD, Adam_C, Adam
 from filelock import FileLock
 import ray
 
-ray.init(num_gpus=2)
+ray.init(num_gpus=1)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def batchify(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
@@ -24,7 +24,7 @@ def batchify(data, bsz):
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1).t().contiguous()
-    return data.to(device)
+    return data.cuda()
 
 
 ###############################################################################
@@ -184,9 +184,9 @@ def HyperEvaluate(config):
 
     # Set the random seed manually for reproducibility.
     torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        if not args.cuda:
-            print("WARNING: You have a CUDA device, so you should probably run with --cuda")
+#    if torch.cuda.is_available():
+ #       if not args.cuda:
+  #          print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
     ###############################################################################
     # Load data
