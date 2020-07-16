@@ -67,7 +67,7 @@ def createGraph(yrange=[0.0,0.5], model = 'model', dataset = 'MNIST',filename = 
     plt.close()
 
 if __name__ == '__main__':
-    Opts = [['SGD']]#,('Adam_C','Adam')]#,('SGDM_C','SGDM')]
+    Opts = [['Adam'],['SGDM']]#,('Adam_C','Adam')]#,('SGDM_C','SGDM')]
     models = ['NeuralNet','LR']
     for model in models:
         print(model)
