@@ -68,7 +68,7 @@ def createGraph(yrange=[0.0,0.5], model = 'model', dataset = 'PTB',filename = 'r
     plt.close()
 
 if __name__ == '__main__':
-    Opts = [['Adam'],['SGD'],['SGDM']]#,'SGDM','SGD']]#,('Adam_C','Adam')]#,('SGDM_C','SGDM')]
+    Opts = [['Adam','SGD','SGDM']]#,'SGDM','SGD']]#,('Adam_C','Adam')]#,('SGDM_C','SGDM')]
     models = ['LSTM']
     for model in models:
         print(model)
