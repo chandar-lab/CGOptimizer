@@ -17,7 +17,7 @@ args = parser.parse_args()
 def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
     #mapdict = {20:'Baseline', 22: 'BERT', 30: 'fastText', 31: 'GloVe'}#{2:'Baseline', 1:'1E-3',4:'1E0'}#{2:'Baseline', 1: '1E-3', 0: '1E-2',3: '1E-1', 4: '1E0', 5:'1E1', 6:'1E2'}
     seeds = ['100','101','102','103','104']
-    lr = ['0.01','0.001','0.0001']
+    lr = ['0.0001']
     topC = ['3']
     kappa = ['0.99']
     fieldnames=['Model','Dataset','Optimizer','Seed','Epoch','Train Loss','Val. Loss','Val. Accuracy']
@@ -42,7 +42,7 @@ def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
                     writer.writerow(dict([
                     ('Model',model),
                     ('Dataset',args.dataset),
-                    ('Optimizer',opt+' '+l),
+                    ('Optimizer',opt),#+' '+l),
                     ('Seed',s),
                     ('Epoch',ep),
                     ('Train Loss',line[2].split()[-1]),
@@ -67,11 +67,11 @@ def createGraph(yrange=[0.0,0.5], model = 'model', dataset = 'MNIST',filename = 
     plt.close()
 
 if __name__ == '__main__':
-    Opts = [['Adam'],['SGDM']]#,('Adam_C','Adam')]#,('SGDM_C','SGDM')]
+    Opts = [['Adam','SGDM','SGD']]#,('Adam_C','Adam')]#,('SGDM_C','SGDM')]
     models = ['NeuralNet','LR']
     for model in models:
         print(model)
         for opt_ in Opts:
             header = createData(args.dataset, model = model, Opts = opt_)
             for param in header[5:]:
-                createGraph(graphparam = param, model = model, save_file = model+'_'+param + '_'.join(opt_)+'.png',opt = opt_)
+                createGraph(graphparam = param, model = model, save_file = model+'_'+param + '_'.join(opt_)+'.png')
