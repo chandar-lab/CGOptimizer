@@ -15,7 +15,7 @@ from optimizers.optim import SGD_C, SGD, Adam_C, Adam
 from filelock import FileLock
 import ray
 
-ray.init()
+ray.init(num_gpus=2)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def batchify(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
@@ -123,12 +123,12 @@ def export_onnx(path, batch_size, seq_len):
 
 
 # Loop over epochs.
-@ray.remote
+@ray.remote(num_gpus=1)
 def HyperEvaluate(config):
     import word_language_model.data as data
     import word_language_model.model as model
     best_val_loss = None
-
+    print(config)
     parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
 
     parser.add_argument('--node-ip-address=')#,192.168.2.19
@@ -219,11 +219,11 @@ def HyperEvaluate(config):
     if not os.path.exists(SAMPLES_PATH):
         os.makedirs(SAMPLES_PATH)
     LOG_FILE_NAME = 'logs.txt'
-    logging.basicConfig(filename=os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),
-                            filemode='a+',
-                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                            datefmt='%H:%M:%S',
-                            level=logging.INFO)
+    # logging.basicConfig(filename=os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),
+    #                         filemode='a+',
+    #                         format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+    #                         datefmt='%H:%M:%S',
+    #                         level=logging.INFO)
 
     eval_batch_size = 10
     train_data = batchify(corpus.train, args.batch_size)
@@ -258,15 +258,20 @@ def HyperEvaluate(config):
 
     # At any point you can hit Ctrl + C to break out of training early.
     try:
-        for epoch in range(0, N_EPOCHS):
+        for epoch in range(N_EPOCHS):
             epoch_start_time = time.time()
             train_loss, offline_stats = train(model,train_data,optimizer,ntokens,args.bptt,args.clip,args.batch_size,criterion)
             off = offline_stats['no']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
             on = offline_stats['yes']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
             train_time = time.time() - epoch_start_time
             val_loss = evaluate(model,val_data,ntokens,args.bptt,criterion)
-            logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
-            print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
+            lock = FileLock(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME+'.new.lock'))
+            with lock:
+                with open(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),'a') as f:
+                    f.write(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |\n')
+                lock.release()
+            optimizer.resetOfflineStats()
+            #print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
             # Save the model if the validation loss is the best we've seen so far.
             if not best_val_loss or val_loss < best_val_loss:
                 with open(os.path.join(MODEL_SAVE_PATH,args.save+'_best_model.pt'), 'wb') as f:
