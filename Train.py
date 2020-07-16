@@ -28,7 +28,7 @@ import itertools
 from filelock import FileLock
 import ray
 
-ray.init()
+ray.init(num_gpus=2)
 
 # commandline arguments
 
@@ -168,7 +168,7 @@ def evaluate(model, iterator, criterion, itos_vocab = None, itos_context_id = No
             epoch_correct += correct.item()
     return epoch_loss / len(iterator), 100. * epoch_correct/ total
 
-@ray.remote
+@ray.remote(num_gpus=1)
 def HyperEvaluate(config):
     print(config)
     parser = argparse.ArgumentParser()
@@ -237,11 +237,11 @@ def HyperEvaluate(config):
     if not os.path.exists(SAMPLES_PATH):
         os.makedirs(SAMPLES_PATH)
     LOG_FILE_NAME = 'logs.txt'
-    logging.basicConfig(filename=os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),
-                            filemode='a+',
-                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                            datefmt='%H:%M:%S',
-                            level=logging.INFO)
+    # logging.basicConfig(filename=os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),
+    #                         filemode='a+',
+    #                         format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+    #                         datefmt='%H:%M:%S',
+    #                         level=logging.INFO)
     OUTPUT_DIM = INPUT_DIM
     ENC_EMB_DIM = args.s2s_embedding_size # encoder embedding size
     DEC_EMB_DIM = args.s2s_embedding_size   # decoder embedding size (can be different from encoder embedding size)
@@ -345,11 +345,16 @@ def HyperEvaluate(config):
             sample_saver_eval.close()
             valid_perf = getBLEU(sample_saver_eval.name)
         if model.data == 'text':
-            logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f} | Val. Loss: {valid_loss:.3f} | Val. PPL: {math.exp(valid_loss):7.3f} | Val. BLEU: {valid_perf:7.3f} |')
+            with FileLock(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME+'.new.lock')):
+                logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f} | Val. Loss: {valid_loss:.3f} | Val. PPL: {math.exp(valid_loss):7.3f} | Val. BLEU: {valid_perf:7.3f} |')
             #print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f} | Val. Loss: {valid_loss:.3f} | Val. PPL: {math.exp(valid_loss):7.3f} | Val. BLEU: {valid_perf:7.3f} |')
         else:
-            logging.info(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {valid_loss:.3f} | Val. Accuracy: {valid_perf:7.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
+            lock = FileLock(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME+'.new.lock'))
+            with lock:
+                with open(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),'a') as f:
+                    f.write(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {valid_loss:.3f} | Val. Accuracy: {valid_perf:7.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |\n')
             #print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {valid_loss:.3f} | Val. Accuracy: {valid_perf:7.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
+                lock.release()
         optimizer.resetOfflineStats()
         #torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,args.model+'_'+str(epoch)+'.pt'))
         if valid_perf > best_validation_perf:
@@ -360,9 +365,9 @@ def HyperEvaluate(config):
     return best_validation_perf
 
 t_models = ['LR']
-t_seeds = [100,101,102,103,104]
+t_seeds = [100,101,102]#,103,104]
 t_dataset = ['mnist']
-t_optim = ['SGD','SGDM','Adam']
+t_optim = ['SGD','SGDM']#,'Adam']
 t_lr = [1e-2,1e-3,1e-4]
 
 best_hyperparameters = None
