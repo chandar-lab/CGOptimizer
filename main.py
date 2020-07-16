@@ -257,32 +257,28 @@ def HyperEvaluate(config):
         optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
 
     # At any point you can hit Ctrl + C to break out of training early.
-    try:
-        for epoch in range(N_EPOCHS):
-            epoch_start_time = time.time()
-            train_loss, offline_stats = train(model,train_data,optimizer,ntokens,args.bptt,args.clip,args.batch_size,criterion)
-            off = offline_stats['no']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
-            on = offline_stats['yes']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
-            train_time = time.time() - epoch_start_time
-            val_loss = evaluate(model,val_data,ntokens,args.bptt,criterion)
-            lock = FileLock(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME+'.new.lock'))
-            with lock:
-                with open(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),'a') as f:
-                    f.write(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |\n')
-                lock.release()
-            optimizer.resetOfflineStats()
-            #print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
-            # Save the model if the validation loss is the best we've seen so far.
-            if not best_val_loss or val_loss < best_val_loss:
-                with open(os.path.join(MODEL_SAVE_PATH,args.save+'_best_model.pt'), 'wb') as f:
-                    torch.save(model, f)
-                best_val_loss = val_loss
-            # else:
-            #     # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            #     lr /= 4.0
-    except KeyboardInterrupt:
-        print('-' * 89)
-        print('Exiting from training early')
+    for epoch in range(N_EPOCHS):
+        epoch_start_time = time.time()
+        train_loss, offline_stats = train(model,train_data,optimizer,ntokens,args.bptt,args.clip,args.batch_size,criterion)
+        off = offline_stats['no']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
+        on = offline_stats['yes']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
+        train_time = time.time() - epoch_start_time
+        val_loss = evaluate(model,val_data,ntokens,args.bptt,criterion)
+        lock = FileLock(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME+'.new.lock'))
+        with lock:
+            with open(os.path.join(MODEL_SAVE_PATH,LOG_FILE_NAME),'a') as f:
+                f.write(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |\n')
+            lock.release()
+        optimizer.resetOfflineStats()
+        #print(f'| Epoch: {epoch+1:03} | Train Loss: {train_loss:.3f} | Val. Loss: {val_loss:.3f} | Val. PPL: {math.exp(val_loss):7.3f} | Train Time: {train_time:.3f} | offline updates: {off:7.3f} | online udpates: {on:7.3f} |')
+        # Save the model if the validation loss is the best we've seen so far.
+        if not best_val_loss or val_loss < best_val_loss:
+            with open(os.path.join(MODEL_SAVE_PATH,args.save+'_best_model.pt'), 'wb') as f:
+                torch.save(model, f)
+            best_val_loss = val_loss
+        # else:
+        #     # Anneal the learning rate if no improvement has been seen in the validation dataset.
+        #     lr /= 4.0
 
     return best_val_loss
 
