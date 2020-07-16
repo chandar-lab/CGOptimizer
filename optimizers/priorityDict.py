@@ -63,16 +63,25 @@ class priority_dict(dict):
         k,_ = self._heap[0]
         return k
 
+    def gradmean(self):
+        """Return the sum of top k gradients
+        """
+
+        mean = torch.clone(self._heap[0][1])
+        cnt = 1.
+        for _,v in self._heap[1:]:
+            mean.add_(v)
+            cnt += 1.
+        return mean.div_(cnt)
+
     def gradsum(self):
         """Return the sum of top k gradients
         """
 
         sum = torch.clone(self._heap[0][1])
-        cnt = 1.
         for _,v in self._heap[1:]:
             sum.add_(v)
-            cnt += 1.
-        return sum#.div_(cnt)
+        return sum
 
     def __getitem__(self,key):
 

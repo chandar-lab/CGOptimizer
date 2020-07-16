@@ -142,11 +142,11 @@ class SGD_C(Optimizer):
         The Nesterov version is analogously modified.
     """
 
-    def __init__(self, params, lr=0.001, kappa=0.99, dampening=0.,
-                 weight_decay=0, momentum = 0., decay = 0.99, nesterov =False, topC=10):
+    def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
+                 weight_decay=0, momentum = 0., decay = 0.99, nesterov =False, topC=10, sum='sum'):
 
         defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
-                        weight_decay=weight_decay, momentum = 0., decay = decay, nesterov = nesterov, gradHist = {},topC=topC)
+                        weight_decay=weight_decay, momentum = 0., sum=sum, decay = decay, nesterov = nesterov, gradHist = {},topC=topC)
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(SGD_C, self).__init__(params, defaults)
@@ -179,6 +179,7 @@ class SGD_C(Optimizer):
             momentum = group['momentum']
             nesterov = group['nesterov']
             topc = group['topC']
+            sum = group['sum']
 
             for p in group['params']:
                 if p.grad is None:
@@ -211,7 +212,10 @@ class SGD_C(Optimizer):
                     # CG method:
                     # x_new = x_old - lr * (momentum * grad_CG + (1-dampening) * grad_t)
                     # grad_CG <- topk gradients
-                    crit_buf_ = crit_buf.gradsum()
+                    if 'sum' in sum:
+                        crit_buf_ = crit_buf.gradsum()
+                    else:
+                        crit_buf_ = crit_buf.gradmean()
                     crit_buf_.mul_(kappa)
                     crit_buf.decay()
                 # if momentum != 0:

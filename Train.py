@@ -195,7 +195,9 @@ def HyperEvaluate(config):
     parser.add_argument('--batch_size',type=int,default=64)
     parser.add_argument('--seed', type=int, default=config['seed'])
     parser.add_argument('--kappa', type=float, default = 1.0)
-    parser.add_argument('--topC', type=int, default = 10)
+    parser.add_argument('--decay', type=float, default = config['decay'])
+    parser.add_argument('--gradsum',type=str,default=config['gradsum'])
+    parser.add_argument('--topC', type=int, default = config['topC'])
     parser.add_argument('--lr', type=float, default=config['lr'])
     parser.add_argument('--gamma', type=float, default=0.7)
 
@@ -205,7 +207,7 @@ def HyperEvaluate(config):
     MAX_LENGTH = 101
     BATCH_SIZE = args.batch_size
     if '_C' in args.optimizer:
-        run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr) + '_topC_' + str(args.topC) + '_kappa_'+ str(args.kappa)
+        run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr) + '_topC_' + str(args.topC) + '_decay_'+ str(args.decay) +'_'+args.gradsum
     else:
         run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr)
     if args.dataset == 'MultiWoZ':
@@ -322,7 +324,7 @@ def HyperEvaluate(config):
         elif args.optimizer == 'Adam':
             optimizer = Adam(model.parameters(), lr = args.lr)
         elif args.optimizer == 'SGD_C':
-            optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
+            optimizer = SGD_C(model.parameters(),lr = args.lr, decay=args.decay, topC = args.topC, sum = args.gradsum)
         criterion = nn.CrossEntropyLoss().to(device)
 
     else:
@@ -368,8 +370,11 @@ def HyperEvaluate(config):
 t_models = ['NeuralNet']
 t_seeds = [100,101,102,103,104]
 t_dataset = ['mnist']
-t_optim = ['SGD']#,'SGDM','Adam']
-t_lr = [1e-2]#,1e-3,1e-4]
+t_optim = ['SGD_C']#,'SGDM','Adam']
+t_lr = [1e-2,1e-3,1e-4]
+t_decay = [0.9,0.95,0.99]
+t_topC = [3,10,20,50]
+t_choice = ['sum','average']
 
 best_hyperparameters = None
 best_accuracy = 0
@@ -380,13 +385,16 @@ remaining_ids = []
 # hyerparameters used for that experiment.
 hyperparameters_mapping = {}
 
-for s,l,d,m,o in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim):
+for s,l,d,m,o,dec,t,ch in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim,t_decay,t_topC,t_choice):
     config = {}
     config['model'] = m
     config['seed'] = s
     config['lr'] = l
     config['dataset'] =d
     config['optim'] = o
+    config['decay'] = dec
+    config['gradsum'] = ch
+    config['topC'] = t
     accuracy_id = HyperEvaluate.remote(config)
     remaining_ids.append(accuracy_id)
     hyperparameters_mapping[accuracy_id] = config
