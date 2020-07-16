@@ -10,6 +10,7 @@ from optimizers.optim import SGD_C, SGD, Adam_C, Adam
 #from Utils.TransformerUtils import create_masks
 from EncoderDecoder import EncoderDecoder
 import sys
+sys.path.append('/home/ml/pparth2/anaconda3/lib/python3.7/site-packages')
 import torch
 import torch.nn as nn
 import numpy as np
@@ -359,7 +360,7 @@ def HyperEvaluate(config):
         #scheduler.step()
     return best_validation_perf
 
-t_models = ['LR']
+t_models = ['NeuralNet']
 t_seeds = [100,101,102,103,104]
 t_dataset = ['mnist']
 t_optim = ['SGD','SGDM','Adam']
