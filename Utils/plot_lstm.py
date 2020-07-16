@@ -17,7 +17,8 @@ args = parser.parse_args()
 def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
     #mapdict = {20:'Baseline', 22: 'BERT', 30: 'fastText', 31: 'GloVe'}#{2:'Baseline', 1:'1E-3',4:'1E0'}#{2:'Baseline', 1: '1E-3', 0: '1E-2',3: '1E-1', 4: '1E0', 5:'1E1', 6:'1E2'}
     seeds = ['100','101','102','103','104']
-    lr = ['0.0001','0.001','0.01']
+    #lr = ['0.0001','0.001','0.01']
+    lr = {'Adam':'0.001','SGD':'0.01','SGDM':'0.01'}
     topC = ['3']
     kappa = ['0.99']
     fieldnames=['Model','Dataset','Optimizer','Seed','Epoch','Train Loss','Val. Loss','Val. PPL']
@@ -26,13 +27,13 @@ def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
     writer.writerow(dict(zip(fieldnames, fieldnames)))
     for v in Opts:
         print('Now gathering info from ',v)
-        for s,l in itertools.product(seeds,lr):
-            print(s,l)
+        for s in seeds:
+            print(s)
             #if '_C' in v:
             #    folder = os.path.join('..','Results',args.dataset, model +'_'+ v, 'Model','seed_'+s+'_LR_'+l+'_topC_'+c+'_kappa_'+k)
             #    opt = v+c
             #else:
-            folder = os.path.join('..','Results',args.dataset, model+'_' + v, 'Model','seed_'+s+'_LR_'+l)
+            folder = os.path.join('..','Results',args.dataset, model+'_' + v, 'Model','seed_'+s+'_LR_'+lr[v])
             opt = v
             f = open(os.path.join(folder,'logs.txt'))
             ep = 1
@@ -42,7 +43,7 @@ def createData(dataset, Opts, model): # alpha->exp mapping {1:'1E-1',2:'1E-3'}
                     writer.writerow(dict([
                     ('Model',model),
                     ('Dataset',args.dataset),
-                    ('Optimizer',opt+' '+l),#+' '+l),
+                    ('Optimizer',opt),#+' '+l),
                     ('Seed',s),
                     ('Epoch',ep),
                     ('Train Loss',line[2].split()[-1]),
