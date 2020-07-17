@@ -2,6 +2,14 @@ from heapq import heapify, heappush, heappop
 import torch
 from copy import deepcopy
 
+class HeapItem:
+    def __init__(self, p, t):
+        self.p = p
+        self.t = t
+
+    def __lt__(self, other):
+        return self.p < other.p
+
 class priority_dict(dict):
     """Dictionary that can be used as a priority queue.
 
@@ -19,7 +27,7 @@ class priority_dict(dict):
 
     def __init__(self, *args, **kwargs):
         super(priority_dict, self).__init__(*args, **kwargs)
-        self._heap = [(k, v) for k, v in self.items()]
+        self._heap = [HeapItem(k, v) for k, v in self.items()]
         self._rebuild_heap()
 
     def sethyper(self,decay_rate = 0.5, K = 5):
@@ -29,14 +37,14 @@ class priority_dict(dict):
     def _reorder(self):
         #super(priority_dict, self).__init__(self._heap[-self.k:])
         self._heap = deepcopy(self._heap[-self.k:])
-        in_heap = [k for k,_ in self._heap]
+        in_heap = [it.p for it in self._heap]
         del_ = [k for k in self.keys() if k not in in_heap]
         for k in del_:
             del self[k]
 
 
     def _rebuild_heap(self):
-        self._heap = [(k, v) for k, v in self._heap if k > 0.0]
+        self._heap = [it for it in self._heap if it.p > 0.0]
         heapify(self._heap)
         if not self.isEmpty() and self.isFull():
             self._reorder()
@@ -47,7 +55,7 @@ class priority_dict(dict):
         return False
 
     def decay(self):
-        self._heap = [(self.decay_rate*k, v) for k, v in self._heap]
+        self._heap = [HeapItem(self.decay_rate*it.p, it.t) for it in self._heap]
 
     def isFull(self):
         if len(self._heap) < self.k:
@@ -60,17 +68,17 @@ class priority_dict(dict):
         Raises IndexError if the object is empty.
         """
 
-        k,_ = self._heap[0]
-        return k
+        it = self._heap[0]
+        return it.p
 
     def gradmean(self):
         """Return the sum of top k gradients
         """
 
-        mean = torch.clone(self._heap[0][1])
+        mean = torch.clone(self._heap[0].t)
         cnt = 1.
-        for _,v in self._heap[1:]:
-            mean.add_(v)
+        for it in self._heap[1:]:
+            mean.add_(it.t)
             cnt += 1.
         return mean.div_(cnt)
 
@@ -78,9 +86,9 @@ class priority_dict(dict):
         """Return the sum of top k gradients
         """
 
-        sum = torch.clone(self._heap[0][1])
-        for _,v in self._heap[1:]:
-            sum.add_(v)
+        sum = torch.clone(self._heap[0].t)
+        for it in self._heap[1:]:
+            sum.add_(it.t)
         return sum
 
     def __getitem__(self,key):
@@ -95,7 +103,7 @@ class priority_dict(dict):
         # since this would have a cost O(n).
 
         #super(priority_dict, self).__setitem__(key, val)
-        self._heap.append((key, val))
+        self._heap.append(HeapItem(key, val))
         self._rebuild_heap()
 
     def setdefault(self, key, val):
