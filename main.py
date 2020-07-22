@@ -178,7 +178,9 @@ def HyperEvaluate(config):
                         help='verify the code and the model')
     parser.add_argument('--optimizer',type=str, default=config['optim'])
     parser.add_argument('--kappa', type=float, default = 1.0)
-    parser.add_argument('--topC', type=int, default = 3)
+    parser.add_argument('--decay', type=float, default=config['decay'])
+    parser.add_argument('--gradsum',type=str,default=config['gradsum'])
+    parser.add_argument('--topC', type=int, default=config['topC'])
 
     args = parser.parse_args()
 
@@ -209,7 +211,7 @@ def HyperEvaluate(config):
     N_EPOCHS = args.epochs           # number of epochs
     CLIP = args.clip               # gradient clip value    # directory name to save the models.
     if '_C' in args.optimizer:
-        run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr) + '_topC_' + str(args.topC) + '_kappa_'+ str(args.kappa)
+        run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr) + '_topC_' + str(args.topC) + '_decay_'+ str(args.decay) +'_'+args.gradsum
     else:
         run_id = "seed_" + str(args.seed) + '_LR_' + str(args.lr)
     MODEL_SAVE_PATH = os.path.join('Results', args.dataset, args.model + '_' + args.optimizer,'Model',run_id)
@@ -254,7 +256,7 @@ def HyperEvaluate(config):
     elif args.optimizer == 'Adam':
         optimizer = Adam(model.parameters(), lr = args.lr)
     elif args.optimizer == 'SGD_C':
-        optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
+        optimizer = SGD_C(model.parameters(),lr = args.lr, decay=args.decay, topC = args.topC, sum = args.gradsum)
 
     # At any point you can hit Ctrl + C to break out of training early.
     for epoch in range(N_EPOCHS):
@@ -286,7 +288,10 @@ t_models = ['LSTM']
 t_seeds = [100,101,102,103,104]
 t_dataset = ['wikitext-2']
 t_optim = ['SGD','SGDM','Adam']
-t_lr = [1e-2,1e-3,1e-4]
+t_lr = [1e-2]#,1e-3,1e-4]
+t_decay = [0.95,0.99]#,0.95,0.99]
+t_topC = [3,10]#,10,20,50]
+t_choice = ['sum']#,'average']
 
 best_hyperparameters = None
 best_accuracy = 0
@@ -297,13 +302,16 @@ remaining_ids = []
 # hyerparameters used for that experiment.
 hyperparameters_mapping = {}
 
-for s,l,d,m,o in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim):
+for s,l,d,m,o,dec,t,ch in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim,t_decay,t_topC,t_choice):
     config = {}
     config['model'] = m
     config['seed'] = s
     config['lr'] = l
     config['dataset'] =d
     config['optim'] = o
+    config['decay'] = dec
+    config['gradsum'] = ch
+    config['topC'] = t
     accuracy_id = HyperEvaluate.remote(config)
     remaining_ids.append(accuracy_id)
     hyperparameters_mapping[accuracy_id] = config

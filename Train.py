@@ -362,18 +362,18 @@ def HyperEvaluate(config):
         #torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,args.model+'_'+str(epoch)+'.pt'))
         if valid_perf > best_validation_perf:
            best_validation_perf = valid_perf
-           torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,args.model+'_best_model.pt'))
+           torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,'best_model.pt'))
 
         #scheduler.step()
     return best_validation_perf
 
-t_models = ['NeuralNet']
-t_seeds = [100,101,102,103,104]
+t_models = ['LR']
+t_seeds = [100]#,101,102,103,104]
 t_dataset = ['mnist']
 t_optim = ['SGD_C']#,'SGDM','Adam']
-t_lr = [1e-2,1e-3,1e-4]
-t_decay = [0.9,0.95,0.99]
-t_topC = [3,10,20,50]
+t_lr = [1e-2]#,1e-3,1e-4]
+t_decay = [0.9]#,0.95,0.99]
+t_topC = [50]#,10,20,50]
 t_choice = ['sum','average']
 
 best_hyperparameters = None

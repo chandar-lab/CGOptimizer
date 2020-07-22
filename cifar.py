@@ -92,7 +92,10 @@ def HyperEvaluate(config):
     parser.add_argument('--growthRate', type=int, default=12, help='Growth rate for DenseNet.')
     parser.add_argument('--compressionRate', type=int, default=2, help='Compression Rate (theta) for DenseNet.')
     # Miscs
-    parser.add_argument('--seed', type=int, help='manual seed', default = config['seed'])
+    parser.add_argument('--decay', type=float, default=config['decay'])
+    parser.add_argument('--gradsum',type=str,default=config['gradsum'])
+    parser.add_argument('--topC', type=int, default=config['topC'])
+    parser.add_argument('--seed', type=int, help='manual seed', default=config['seed'])
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                         help='evaluate model on validation set')
     #Device options
@@ -209,7 +212,7 @@ def HyperEvaluate(config):
     elif args.optimizer == 'Adam':
         optimizer = Adam(model.parameters(), lr = args.lr)
     elif args.optimizer == 'SGD_C':
-        optimizer = SGD_C(model.parameters(),lr = args.lr, kappa = args.kappa, topC = args.topC)
+        optimizer = SGD_C(model.parameters(),lr = args.lr, decay=args.decay, topC = args.topC, sum = args.gradsum)
     #optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     # Resume
@@ -392,8 +395,11 @@ def adjust_learning_rate(optimizer, epoch, schedule):
 t_models = ['resnet']
 t_seeds = [100,101,102,103,104]
 t_dataset = ['cifar100']
-t_optim = ['SGDM']#,'SGDM','Adam']
-t_lr = [1e-1,1e-2,1e-3]
+t_optim = ['SGD_C']#,'SGDM','Adam']
+t_lr = [1e-1]#,1e-2,1e-3]
+t_decay = [0.95,0.99]#,0.99]
+t_topC = [3,10]#,20,50]
+t_choice = ['sum']#,'average']
 
 best_hyperparameters = None
 best_accuracy = 0
@@ -411,6 +417,9 @@ for s,l,d,m,o in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim):
     config['lr'] = l
     config['dataset'] =d
     config['optim'] = o
+    config['decay'] = dec
+    config['gradsum'] = ch
+    config['topC'] = t
     accuracy_id = HyperEvaluate.remote(config)
     remaining_ids.append(accuracy_id)
     hyperparameters_mapping[accuracy_id] = config
