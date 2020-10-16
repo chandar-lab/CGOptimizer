@@ -1,6 +1,13 @@
-Results/
 *__pycache__*
-*.DS_store
+*.DS_Store
 *.png
 *.csv
 *.pyc
+*.lock
+*.pt
+Results/*
+*.zip
+Dataset/*
+*.nfs*
+*checkpoint*
+*/Graphs
