@@ -28,7 +28,7 @@ import itertools
 from filelock import FileLock
 import ray
 
-ray.init(num_gpus=1,temp_dir='/home/ml/pparth2/')
+ray.init(num_gpus=3,temp_dir='/home/ml/pparth2/')
 
 
 #model_names = sorted(name for name in models.__dict__
@@ -208,7 +208,7 @@ def HyperEvaluate(config):
     elif args.optimizer == 'SGDM':
         optimizer = SGD(model.parameters(),lr = args.lr, momentum = 0.9)
     elif args.optimizer == 'Adam_C':
-        optimizer = Adam_C(model.parameters(), lr = args.lr, kappa = args.kappa, topC = args.topC)
+        optimizer = Adam_C(model.parameters(), lr = args.lr, decay=args.decay, topC = args.topC, sum = args.gradsum)
     elif args.optimizer == 'Adam':
         optimizer = Adam(model.parameters(), lr = args.lr)
     elif args.optimizer == 'SGD_C':
@@ -395,11 +395,11 @@ def adjust_learning_rate(optimizer, epoch, schedule):
 t_models = ['resnet']
 t_seeds = [100,101,102,103,104]
 t_dataset = ['cifar100']
-t_optim = ['SGD_C']#,'SGDM','Adam']
-t_lr = [1e-1]#,1e-2,1e-3]
-t_decay = [0.95,0.99]#,0.99]
-t_topC = [3,10]#,20,50]
-t_choice = ['sum']#,'average']
+t_optim = ['Adam_C','SGD_C']#,'SGDM','Adam']
+t_lr = [1e-2]#,1e-2,1e-3]
+t_decay = [0.6]#[0.95]#,0.99]#,0.99]
+t_topC = [3]#,20,50]
+t_choice = ['sum','average']#,'average']
 
 best_hyperparameters = None
 best_accuracy = 0
@@ -410,7 +410,7 @@ remaining_ids = []
 # hyerparameters used for that experiment.
 hyperparameters_mapping = {}
 
-for s,l,d,m,o in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim):
+for s,l,d,m,o,dec,t,ch in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim,t_decay,t_topC,t_choice):
     config = {}
     config['model'] = m
     config['seed'] = s

@@ -15,7 +15,7 @@ from optimizers.optim import SGD_C, SGD, Adam_C, Adam
 from filelock import FileLock
 import ray
 
-ray.init(num_gpus=1)
+ray.init(num_gpus=3)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def batchify(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
@@ -252,7 +252,7 @@ def HyperEvaluate(config):
     elif args.optimizer == 'SGDM':
         optimizer = SGD(model.parameters(),lr = args.lr, momentum = 0.9)
     elif args.optimizer == 'Adam_C':
-        optimizer = Adam_C(model.parameters(), lr = args.lr, kappa = args.kappa, topC = args.topC)
+        optimizer = Adam_C(model.parameters(), lr = args.lr, decay = args.decay, topC = args.topC,sum=args.gradsum)
     elif args.optimizer == 'Adam':
         optimizer = Adam(model.parameters(), lr = args.lr)
     elif args.optimizer == 'SGD_C':
@@ -287,11 +287,11 @@ def HyperEvaluate(config):
 t_models = ['LSTM']
 t_seeds = [100,101,102,103,104]
 t_dataset = ['wikitext-2']
-t_optim = ['SGD','SGDM','Adam']
-t_lr = [1e-2]#,1e-3,1e-4]
-t_decay = [0.95,0.99]#,0.95,0.99]
-t_topC = [3,10]#,10,20,50]
-t_choice = ['sum']#,'average']
+t_optim = ['Adam_C']#,'Adam']
+t_lr = [1e-2,1e-3]#,1e-3,1e-4]
+t_decay = [0.8,0.7,0.95,0.99]#,0.95,0.99]
+t_topC = [3]#,10,20,50]
+t_choice = ['sum','average']
 
 best_hyperparameters = None
 best_accuracy = 0

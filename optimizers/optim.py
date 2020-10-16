@@ -261,8 +261,8 @@ class Adam_C(Optimizer):
         https://openreview.net/forum?id=ryQu7f-RZ
     """
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, decay = 0.95, kappa = 0.99, topC = 10,
-                 weight_decay=0, amsgrad=False): #decay=0.9
+    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, decay = 0.95, kappa = 1.0, topC = 10,
+                 weight_decay=0, amsgrad=False,sum='sum'): #decay=0.9
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -272,7 +272,7 @@ class Adam_C(Optimizer):
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
         defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay, amsgrad=amsgrad, kappa = kappa, topC = topC, decay = decay)
+                        weight_decay=weight_decay,sum=sum, amsgrad=amsgrad, kappa = kappa, topC = topC, decay = decay)
         super(Adam_C, self).__init__(params, defaults)
         self.resetOfflineStats()
 
@@ -310,6 +310,7 @@ class Adam_C(Optimizer):
                 kappa = group['kappa']
                 decay = group['decay']
                 topc = group['topC']
+                sum = group['sum']
 
                 state = self.state[p]
 
@@ -347,7 +348,10 @@ class Adam_C(Optimizer):
                 bias_correction1 = 1 - beta1 ** state['step']
                 bias_correction2 = 1 - beta2 ** state['step']
                 if kappa > 0.:
-                    grad = state['critical gradients'].gradsum()
+                    if 'sum' in sum:
+                        grad = state['critical gradients'].gradsum()
+                    else:
+                        grad = state['critical gradients'].gradmean()
                 if group['weight_decay'] != 0:
                     grad = grad.add(group['weight_decay'], p.data)
 
