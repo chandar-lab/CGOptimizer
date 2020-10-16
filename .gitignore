@@ -5,7 +5,7 @@
 *.pyc
 *.lock
 *.pt
-Results/*
+*Results/*
 *.zip
 Dataset/*
 *.nfs*

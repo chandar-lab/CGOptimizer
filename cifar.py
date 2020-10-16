@@ -444,13 +444,3 @@ while remaining_ids:
         Optimizer: {}
       """.format(100 * accuracy, hyperparameters["lr"],
                  hyperparameters["seed"], hyperparameters["optim"]))
-
-# Record the best performing set of hyperparameters.
-# print("""Best accuracy over {} trials was {:.3} with
-#       learning_rate: {:.2}
-#       batch_size: {}
-#       momentum: {:.2}
-#       """.format(num_evaluations, 100 * best_accuracy,
-#                  best_hyperparameters["learning_rate"],
-#                  best_hyperparameters["batch_size"],
-#                  best_hyperparameters["momentum"]))
