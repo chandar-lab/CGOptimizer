@@ -410,7 +410,7 @@ remaining_ids = []
 # hyerparameters used for that experiment.
 hyperparameters_mapping = {}
 
-for s,l,d,m,o in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim):
+for s,l,d,m,o,dec,t,ch in itertools.product(t_seeds,t_lr,t_dataset,t_models,t_optim,t_decay,t_topC,t_choice):
     config = {}
     config['model'] = m
     config['seed'] = s
