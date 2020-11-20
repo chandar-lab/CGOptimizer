@@ -11,3 +11,4 @@ Dataset/*
 *.nfs*
 *checkpoint*
 */Graphs
+wandb/*

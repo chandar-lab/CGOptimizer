@@ -30,6 +30,9 @@ class priority_dict(dict):
         self._heap = [HeapItem(k, v) for k, v in self.items()]
         self._rebuild_heap()
 
+    def size(self):
+        return len(self._heap)
+
     def sethyper(self,decay_rate = 0.5, K = 5):
         self.k = K
         self.decay_rate = decay_rate

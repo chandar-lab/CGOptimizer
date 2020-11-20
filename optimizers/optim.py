@@ -8,6 +8,76 @@ from .priorityDict import priority_dict
 from copy import deepcopy
 
 
+class SAGA(Optimizer):
+    """Implement the SAGA optimization algorithm"""
+
+    def __init__(self, params, n_samples, lr=0.001):
+
+        if n_samples <= 0:
+            raise ValueError("Number of samples must be >0: {}".format(n_samples))
+
+        self.n_samples = n_samples
+
+        defaults = dict(lr=lr)
+
+        super(SAGA, self).__init__(params, defaults)
+        self.resetOfflineStats()
+
+    def __setstate__(self, state):
+        super(SAGA, self).__setstate__(state)
+
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
+
+    def step(self, index, closure=None):
+        """Performs a single optimization step.
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+
+        if index < 0.0:
+            raise ValueError("Invalid index value: {}".format(index))
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        n = self.n_samples
+
+        for group in self.param_groups:
+
+            for p in group['params']:
+
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                param_state = self.state[p]
+                if 'gradient_buffer' not in param_state:
+                    buf = param_state['gradient_buffer'] = torch.zeros(n, *list(d_p.shape))
+                else:
+                    buf = param_state['gradient_buffer']
+
+                saga_term = torch.mean(buf, dim = 0).to(device)# hold mean and last gradient in saga_term
+
+                g_i = torch.clone(buf[index]).detach().to(device)
+
+                saga_term.sub_(g_i)
+
+                buf[index] = torch.clone(d_p).detach()
+
+                d_p.sub_(saga_term)
+
+                p.data.add_(d_p, alpha = -group['lr'])
+
+        return loss
+
+
 class SGD(Optimizer):
     r"""Implements stochastic gradient descent (optionally with momentum).
     Nesterov momentum is based on the formula from
@@ -96,57 +166,32 @@ class SGD(Optimizer):
                         buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
                     else:
                         buf = param_state['momentum_buffer']
-                        buf.mul_(momentum).add_(1 - dampening, d_p)
+                        buf.mul_(momentum).add_(d_p, alpha = 1 - dampening)
                     if nesterov:
                         d_p = d_p.add(momentum, buf)
                     else:
                         d_p = buf
 
-                p.data.add_(-group['lr'], d_p)
+                p.data.add_(d_p, alpha = -group['lr'])
 
         return loss
 
 
 class SGD_C(Optimizer):
-    r"""Implements stochastic gradient descent (optionally with momentum).
-    Nesterov momentum is based on the formula from
-    `On the importance of initialization and momentum in deep learning`__.
-    Args:
-        params (iterable): iterable of parameters to optimize or dicts defining
-            parameter groups
-        lr (float): learning rate
-        momentum (float, optional): momentum factor (default: 0)
-        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-        dampening (float, optional): dampening for momentum (default: 0)
-        nesterov (bool, optional): enables Nesterov momentum (default: False)
-    Example:
-        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-        >>> optimizer.zero_grad()
-        >>> loss_fn(model(input), target).backward()
-        >>> optimizer.step()
-    __ http://www.cs.toronto.edu/%7Ehinton/absps/momentum.pdf
-    .. note::
-        The implementation of SGD with Momentum/Nesterov subtly differs from
-        Sutskever et. al. and implementations in some other frameworks.
-        Considering the specific case of Momentum, the update can be written as
-        .. math::
-                  v_{t+1} = \mu * v_{t} + g_{t+1} \\
-                  p_{t+1} = p_{t} - lr * v_{t+1}
-        where p, g, v and :math:`\mu` denote the parameters, gradient,
-        velocity, and momentum respectively.
-        This is in contrast to Sutskever et. al. and
-        other frameworks which employ an update of the form
-        .. math::
-             v_{t+1} = \mu * v_{t} + lr * g_{t+1} \\
-             p_{t+1} = p_{t} - v_{t+1}
-        The Nesterov version is analogously modified.
+    r"""Implements SGD (optionally with momentum) while keeping a record of critical
+    gradients (top C gradients by norm). Adds the sum or mean of these gradients
+    to the final update step such that for param p
+
+    p(t+1) = p(t) + lr * (g_t + f(g_crit))
+
+    Where f is either a sum or mean of the gradients in g_crit
     """
 
     def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
                  weight_decay=0, momentum = 0., decay = 0.99, nesterov =False, topC=10, sum='sum'):
 
         defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
-                        weight_decay=weight_decay, momentum = 0., sum=sum, decay = decay, nesterov = nesterov, gradHist = {},topC=topC)
+                        weight_decay=weight_decay, momentum = momentum, sum=sum, decay = decay, nesterov = nesterov, gradHist = {},topC=topC)
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
         super(SGD_C, self).__init__(params, defaults)
@@ -212,31 +257,139 @@ class SGD_C(Optimizer):
                     # CG method:
                     # x_new = x_old - lr * (momentum * grad_CG + (1-dampening) * grad_t)
                     # grad_CG <- topk gradients
+                    if 'mean' in sum:
+                        crit_buf_ = crit_buf.gradsum()
+                    else:
+                        crit_buf_ = crit_buf.gradmean()
+                    crit_buf_.mul_(kappa)
+                    crit_buf.decay()
+                    if momentum != 0:
+                        param_state = self.state[p]
+                        if 'momentum_buffer' not in param_state:
+                            buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                        else:
+                            buf = param_state['momentum_buffer']
+                            buf.mul_(momentum).add_(d_p, alpha = 1 - dampening)
+                        # if nesterov:
+                        #     d_p = d_p.add(momentum, buf)
+                        # else:
+                        d_p = buf
+
+
+                d_p.add_(crit_buf_)
+
+                if 'mean' in sum:
+                    d_p.div_(crit_buf.size() + 1)
+                elif 'mid' in sum:
+                    d_p.mul_(0.5)
+
+                p.data.add_(d_p, alpha = -group['lr'])
+
+        return loss
+
+class SGD_C_Only(Optimizer):
+    r"""Implements SGD (optionally with momentum) while keeping a record of critical
+    gradients (top C gradients by norm). Replaces the gradient in conventional
+    SGD with either the sum or the mean of critical gradients
+
+    """
+
+    def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
+                 weight_decay=0, momentum = 0., decay = 0.99, nesterov =False, topC=10, sum='sum'):
+
+        defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
+                        weight_decay=weight_decay, momentum = momentum, sum=sum, decay = decay, nesterov = nesterov, gradHist = {},topC=topC)
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        super(SGD_C_Only, self).__init__(params, defaults)
+        self.resetOfflineStats()
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
+
+    def __setstate__(self, state):
+        super(SGD_C_Only, self).__setstate__(state)
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            weight_decay = group['weight_decay']
+            kappa = group['kappa']
+            dampening = group['dampening']
+            decay = group['decay']
+            momentum = group['momentum']
+            nesterov = group['nesterov']
+            topc = group['topC']
+            sum = group['sum']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+                d_p_norm = d_p.norm()
+                crit_buf_ = None
+                if weight_decay != 0:
+                    d_p = d_p.add(weight_decay, p.data)
+                if kappa != 0:
+                    param_state = self.state[p]
+                    if 'critical gradients' not in param_state:
+                        crit_buf = param_state['critical gradients'] = priority_dict()
+                        crit_buf.sethyper(decay_rate = decay, K = topc)
+                        crit_buf[d_p_norm] = deepcopy(d_p)
+                    else:
+                        crit_buf = param_state['critical gradients']
+                        if crit_buf.isFull():
+                            if d_p_norm > crit_buf.pokesmallest():
+                                self.offline_grad['yes'] +=1
+                                crit_buf[d_p_norm] = deepcopy(d_p)
+                            else:
+                                self.offline_grad['no'] +=1
+                        else:
+                            crit_buf[d_p_norm] = deepcopy(d_p)
+                    # Critical Gradients
+                    # x_new = x_old - lr * grad
+                    # x_new = x_old - lr * (momentum * grad_<t + (1-dampening) * grad_t)
+                    # understand how the projection happens col_space or row_space
+                    # CG method:
+                    # x_new = x_old - lr * (momentum * grad_CG + (1-dampening) * grad_t)
+                    # grad_CG <- topk gradients
                     if 'sum' in sum:
                         crit_buf_ = crit_buf.gradsum()
                     else:
                         crit_buf_ = crit_buf.gradmean()
                     crit_buf_.mul_(kappa)
                     crit_buf.decay()
-                # if momentum != 0:
-                #     param_state = self.state[p]
-                #     if 'momentum_buffer' not in param_state:
-                #         buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
-                #     else:
-                #         buf = param_state['momentum_buffer']
-                #         buf.mul_(momentum).add_(1 - dampening, d_p)
-                #     if nesterov:
-                #         d_p = d_p.add(momentum, buf)
-                #     else:
-                #         d_p = buf
-                if nesterov:
-                    d_p = d_p.add(momentum, buf)
-                else:
                     d_p = crit_buf_
+                    if momentum != 0:
+                        param_state = self.state[p]
+                        if 'momentum_buffer' not in param_state:
+                            buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                        else:
+                            buf = param_state['momentum_buffer']
+                            buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
+                        # if nesterov:
+                        #     d_p = d_p.add(momentum, buf)
+                        # else:
+                        d_p = buf
+                # if nesterov:
+                #     d_p = d_p.add(momentum, buf)
+                # else:
+                #     d_p = crit_buf_
                 # if kappa != 0:
                 #     p.data.add_(-group['kappa'],crit_buf_)
 
-                p.data.add_(-group['lr'], d_p)
+                p.data.add_(d_p, alpha = -group['lr'])
 
         return loss
 
