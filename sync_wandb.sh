@@ -3,7 +3,9 @@
 source $HOME/.env/crit-grad/bin/activate
 
 find -name "offline*" -type d | while read line; do
-    wandb sync $line
+	if ! grep -Fxq $line synced.txt; then
+		wandb sync $line
+		echo $line >> synced.txt
+	fi
 done
-
 deactivate

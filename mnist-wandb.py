@@ -4,7 +4,7 @@ from Model.Convnets import ConvNetEncoder, ClassDecoder, LogisticRegression, FCL
 
 import torch.optim as optim
 # from Utils.Eval_metric import getBLEU
-from optimizers.optim import SGD_C, SGD, Adam_C, Adam, SGD_C_Only, SAGA
+from optimizers.optim import SGD_C, SGD, Adam_C, Adam, SGD_C_Only, SAGA, SGD_C_single, SGD_new_momentum
 
 from EncoderDecoder import EncoderDecoder
 import sys
@@ -209,8 +209,12 @@ def HyperEvaluate(config):
             optimizer = SGD(model.parameters(),lr = config['lr'])
         elif config['optim'] == 'SGDM':
             optimizer = SGD(model.parameters(),lr = config['lr'], momentum = 0.9)
+        elif config['optim'] == 'SGDM_new':
+            optimizer = SGD_new_momentum(model.parameters(),lr = config['lr'], momentum = 0.9)
         elif config['optim'] == 'SGD_C':
             optimizer = SGD_C(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+        elif config['optim'] == 'SGD_C_single':
+            optimizer = SGD_C_single(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
         elif config['optim'] == 'SGDM_C':
             optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
         elif config['optim'] == 'SGD_C_Only':
@@ -268,10 +272,10 @@ PARAM_GRID = list(product(
     ['NeuralNet'],             # model
     [100, 101, 102, 103, 104], # seeds
     ['mnist'],          # dataset
-    ['SGD_C'], # optimizer
+    ['SGD'], # optimizer
     [0.1, 0.01, 0.001, 0.0001],  # lr
     [0.9, 0.95, 0.99],  # decay
-    [1, 2, 5, 10, 20],  # topC
+    [1],  # topC
     ['mean', 'mid', 'sum'],         # sum
     [1.0]               # kappa
 ))

@@ -177,6 +177,175 @@ class SGD(Optimizer):
         return loss
 
 
+class SGD_new_momentum(Optimizer):
+
+    def __init__(self, params, lr=0.001, momentum=0, dampening=0,
+                 weight_decay=0, nesterov=False):
+        if momentum < 0.0:
+            raise ValueError("Invalid momentum value: {}".format(momentum))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+
+        defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
+                        weight_decay=weight_decay, nesterov=nesterov)
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        super(SGD, self).__init__(params, defaults)
+        self.resetOfflineStats()
+
+    def __setstate__(self, state):
+        super(SGD_new_momentum, self).__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault('nesterov', False)
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            weight_decay = group['weight_decay']
+            momentum = group['momentum']
+            dampening = group['dampening']
+            nesterov = group['nesterov']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+                if weight_decay != 0:
+                    d_p = d_p.add(weight_decay, p.data)
+                if momentum != 0:
+                    param_state = self.state[p]
+                    if 'momentum_buffer' not in param_state:
+                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
+                        n = param_state['buffer_size'] = 1
+                    else:
+                        buf = param_state['momentum_buffer']
+                        n = param_state['buffer_size']
+                        n += 1
+                        buf.add_(d_p, alpha = 1 - dampening)
+                    if nesterov:
+                        d_p = d_p.add(momentum, buf)
+                    else:
+                        d_p = torch.clone(buf).detach()
+                        d_p.div_(n)
+
+                p.data.add_(d_p, alpha = -group['lr'])
+
+        return loss
+
+
+class SGD_C_single(Optimizer):
+    r"""Implements SGD (optionally with momentum) while keeping a record of critical
+    gradients (top C gradients by norm). Adds the sum or mean of these gradients
+    to the final update step such that for param p
+
+    p(t+1) = p(t) + lr * (g_t + f(g_crit))
+
+    Where f is either a sum or mean of the gradients in g_crit
+    """
+
+    def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
+                 weight_decay=0, momentum = 0., decay = 0.99, nesterov =False, topC=10, sum='sum'):
+
+        defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
+                        weight_decay=weight_decay, momentum = momentum, sum=sum, decay = decay, nesterov = nesterov, gradHist = {},topC=topC)
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        super(SGD_C_single, self).__init__(params, defaults)
+        self.resetOfflineStats()
+
+    def getOfflineStats(self):
+        return self.offline_grad
+
+    def resetOfflineStats(self):
+        self.offline_grad = {'yes':0,'no':0}
+
+    def __setstate__(self, state):
+        super(SGD_C_single, self).__setstate__(state)
+
+    def step(self, closure=None):
+        """Performs a single optimization step.
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            weight_decay = group['weight_decay']
+            kappa = group['kappa']
+            dampening = group['dampening']
+            decay = group['decay']
+            momentum = group['momentum']
+            nesterov = group['nesterov']
+            topc = group['topC']
+            sum = group['sum']
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+                d_p_norm = d_p.norm()
+                crit_buf_ = None
+                if weight_decay != 0:
+                    d_p = d_p.add(weight_decay, p.data)
+
+
+                param_state = self.state[p]
+                if 'critical gradients' not in param_state:
+                    crit_buf = param_state['critical gradients'] = priority_dict()
+                    crit_buf.sethyper(decay_rate = decay, K = topc)
+                else:
+                    crit_buf = param_state['critical gradients']
+                    if 'mean' in sum:
+                        crit_buf_ = crit_buf.gradsum()
+                    else:
+                        crit_buf_ = crit_buf.gradmean()
+                    crit_buf_.mul_(kappa)
+                    crit_buf.decay()
+                    d_p.add_(crit_buf_)
+
+                    if 'mean' in sum:
+                        d_p.div_(crit_buf.size() + 1)
+                    elif 'mid' in sum:
+                        d_p.mul_(0.5)
+
+
+
+                p.data.add_(d_p, alpha = -group['lr'])
+
+
+                if kappa != 0:
+                    if crit_buf.isEmpty():
+                        crit_buf[d_p_norm] = deepcopy(d_p)
+                    else:
+                        crit_buf = param_state['critical gradients']
+                        if crit_buf.isFull():
+                            if d_p_norm > crit_buf.pokesmallest():
+                                self.offline_grad['yes'] +=1
+                                crit_buf[d_p_norm] = deepcopy(d_p)
+                            else:
+                                self.offline_grad['no'] +=1
+                        else:
+                            crit_buf[d_p_norm] = deepcopy(d_p)
+
+        return loss
+
 class SGD_C(Optimizer):
     r"""Implements SGD (optionally with momentum) while keeping a record of critical
     gradients (top C gradients by norm). Adds the sum or mean of these gradients
