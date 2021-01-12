@@ -1,6 +1,6 @@
 # from torchtext import data
 
-from Model.Convnets import ConvNetEncoder, ClassDecoder, LogisticRegression, FCLayer
+from Model.Convnets import Cifar10CnnModel, Cifar100CnnModel, ClassDecoder, LogisticRegression, FCLayer
 
 import torch.optim as optim
 # from Utils.Eval_metric import getBLEU
@@ -79,7 +79,7 @@ def train(model, iterator, optimizer, criterion, clip=10):
     for i, batch in enumerate(iterator):
         stats = None
 
-        if isinstance(model, EncoderDecoder):
+        if isinstance(model, Cifar100CnnModel) or isinstance(model, Cifar10CnnModel):
             src = batch[0]
         else:
             src = batch[0].view(-1,784)
@@ -125,7 +125,7 @@ def evaluate(model, iterator, criterion):
     total = 0
     with torch.no_grad():
         for i, batch in enumerate(iterator):
-            if isinstance(model, EncoderDecoder):
+            if isinstance(model, Cifar100CnnModel) or isinstance(model, Cifar10CnnModel):
                 src = batch[0]
             else:
                 src = batch[0].view(-1,784)
@@ -142,8 +142,6 @@ def evaluate(model, iterator, criterion):
     return epoch_loss / len(iterator), 100. * epoch_correct/ total
 
 def HyperEvaluate(config):
-    print(config)
-
 
     torch.manual_seed(config['seed'])
 
@@ -159,80 +157,79 @@ def HyperEvaluate(config):
     else:
         run_id = "seed_" + str(config['seed']) + '_LR_' + str(config['lr'])
 
-    wandb.init(project="Critical-Gradients-mnist", reinit = True)
+    wandb.init(project="Critical-Gradients-" + config['dataset'], reinit = True)
     wandb.run.name = run_id
     wandb.run.save()
 
     wandb.config.update(config)
 
-    if config['dataset'] == 'mnist':
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-            ])
-        with FileLock(os.path.expanduser("~/data.lock")):
-            dataset1 = datasets.MNIST(data_path, train=True, download=True,
-                           transform=transform)
-        dataset2 = datasets.MNIST(data_path, train=False,
-                           transform=transform)
-        train_iterator = torch.utils.data.DataLoader(dataset1,batch_size=BATCH_SIZE,
-                                               shuffle=True)
-        valid_iterator = torch.utils.data.DataLoader(dataset2, batch_size=BATCH_SIZE,
-                                               shuffle=True)
-        INPUT_DIM = 10
+    transform_train = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
+
+    transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ])
+    if config['dataset'] == 'cifar10':
+        dataloader = datasets.CIFAR10
+        num_classes = 10
+    else:
+        dataloader = datasets.CIFAR100
+        num_classes = 100
+
+    BATCH_SIZE = args.batch_size
+
+    trainset = dataloader(root='./Dataset', train=True, download=True, transform=transform_train)
+    train_iterator = torch.utils.data.DataLoader(trainset, batch_size=BATCH_SIZE, shuffle=True)
+
+    testset = dataloader(root='./Dataset', train=False, download=False, transform=transform_test)
+    valid_iterator = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE, shuffle=False)
+
+
+    INPUT_DIM = 10
 
     # encoder
-    if config['model'] == 'LR':
-        model = LogisticRegression(784,10)
+
+    if config['model'] == 'convnet':
+        if config['dataset'] == 'cifar10':
+            model = Cifar10CnnModel()
+        elif config['dataset'] == 'cifar100':
+            model = Cifar100CnnModel()
         model = model.to(device)
-        itos_context_id = None
-        itos_vocab = None
-    elif config['model'] == 'NeuralNet':
-        model = FCLayer()
-        model = model.to(device)
-        itos_context_id = None
-        itos_vocab = None
-    elif config['model'] == 'convnet':
-        enc = ConvNetEncoder().to(device)
-        dec = ClassDecoder().to(device)
-        model = EncoderDecoder(enc,dec,data='image')
         optimizer = optim.Adadelta(model.parameters(), lr=config['lr'])
         scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-        itos_context_id = None
-        itos_vocab = None
+
     else:
         print('Error: Model Not There')
         sys.exit(0)
 
-    if config['dataset'] == 'mnist':
-        if config['optim'] == 'SGD':
-            optimizer = SGD(model.parameters(),lr = config['lr'])
-        elif config['optim'] == 'SGDM':
-            optimizer = SGD(model.parameters(),lr = config['lr'], momentum = 0.9)
-        elif config['optim'] == 'SGDM_new':
-            optimizer = SGD_new_momentum(model.parameters(),lr = config['lr'], momentum = 0.9)
-        elif config['optim'] == 'SGD_C':
-            optimizer = SGD_C(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGD_C_single':
-            optimizer = SGD_C_single(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGDM_C':
-            optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGD_C_Only':
-            optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGDM_C_Only':
-            optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'Adam_C':
-            optimizer = Adam_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'Adam_C_inter':
-            optimizer = Adam_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'], param_level = False)
-        elif config['optim'] == 'Adam_C_param':
-            optimizer = Adam_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'], param_level = True)
-        elif config['optim'] == 'Adam':
-            optimizer = Adam(model.parameters(), lr = config['lr'])
-        criterion = nn.CrossEntropyLoss().to(device)
+    if config['optim'] == 'SGD':
+        optimizer = SGD(model.parameters(),lr = config['lr'])
+    elif config['optim'] == 'SGDM':
+        optimizer = SGD(model.parameters(),lr = config['lr'], momentum = 0.9)
+    elif config['optim'] == 'SGDM_new':
+        optimizer = SGD_new_momentum(model.parameters(),lr = config['lr'], momentum = 0.9)
+    elif config['optim'] == 'SGD_C':
+        optimizer = SGD_C(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGD_C_single':
+        optimizer = SGD_C_single(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGDM_C':
+        optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGD_C_Only':
+        optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGDM_C_Only':
+        optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'Adam_C':
+        optimizer = Adam_C(model.parameters(), lr = config['lr'], kappa = config['kappa'], topC = config['topC'])
+    elif config['optim'] == 'Adam':
+        optimizer = Adam(model.parameters(), lr = config['lr'])
 
-    else:
-        criterion = nn.CrossEntropyLoss(ignore_index=pad_idx).to(device)
+    criterion = nn.CrossEntropyLoss().to(device)
+
     # loss function calculates the average loss per token
     # passing the <pad> token to ignore_idx argument, we will ignore loss whenever the target token is <pad>
 
@@ -271,9 +268,9 @@ hyperparameters_mapping = {}
 
 
 PARAM_GRID = list(product(
-    ['NeuralNet'],             # model
+    ['convnet'],             # model
     [100, 101, 102, 103, 104], # seeds
-    ['mnist'],          # dataset
+    ['cifar10'],          # dataset
     ['SGD'], # optimizer
     [0.1, 0.01, 0.001, 0.0001],  # lr
     [0.9, 0.95, 0.99],  # decay

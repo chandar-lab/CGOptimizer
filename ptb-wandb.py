@@ -14,11 +14,12 @@ from itertools import product
 import wandb
 
 #sys.path.append(os.path.expanduser('~/Documents/CriticalGradientOptimization/optimizers'))
-from optimizers.optim import SGD_C, SGD, Adam_C, Adam, SGD_C_Only, SGD_C_single, SGD_new_momentum, SAGA
+from optimizers.optim import SGD_C, SGD, Adam_C, Adam, SGD_C_Only, SGD_C_single, SGD_new_momentum, SAGA, RMSprop, RMSprop_C, RMSprop_C_single, Adam_C_single
 from filelock import FileLock
 
 os.environ["WANDB_API_KEY"] = '90b23c86b7e5108683b793009567e676b1f93888'
 os.environ["WANDB_MODE"] = "dryrun"
+os.environ['WANDB_SILENT'] = 'true'
 
 # commandline arguments
 
@@ -228,9 +229,8 @@ def HyperEvaluate(config):
     else:
         run_id = "seed_" + str(config['seed']) + '_LR_' + str(config['lr'])
 
-    wandb.init(project="Critical-Gradients-LSTM", reinit = True)
+    wandb.init(project="Critical-Gradients-LSTM-" + config['dataset'], reinit = True)
     wandb.run.name = run_id
-    wandb.run.save()
 
     wandb.config.update(config)
 
@@ -254,29 +254,40 @@ def HyperEvaluate(config):
         model = model.RNNModel(config['model'], ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied).to(device)
 
     criterion = nn.NLLLoss()
-    if config['dataset'] == 'mnist':
-        if config['optim'] == 'SGD':
-            optimizer = SGD(model.parameters(),lr = config['lr'])
-        elif config['optim'] == 'SGDM':
-            optimizer = SGD(model.parameters(),lr = config['lr'], momentum = 0.9)
-        elif config['optim'] == 'SGDM_new':
-            optimizer = SGD_new_momentum(model.parameters(),lr = config['lr'], momentum = 0.9)
-        elif config['optim'] == 'SGD_C':
-            optimizer = SGD_C(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGD_C_single':
-            optimizer = SGD_C_single(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGDM_C':
-            optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGD_C_Only':
-            optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'SGDM_C_Only':
-            optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-        elif config['optim'] == 'Adam_C':
-            optimizer = Adam_C(model.parameters(), lr = config['lr'], kappa = config['kappa'], topC = config['topC'])
-        elif config['optim'] == 'Adam':
-            optimizer = Adam(model.parameters(), lr = config['lr'])
-        elif config['optim'] == 'SAGA':
-            optimizer = SAGA(model.parameters(), n_samples = len(dataset1),lr = config['lr'])    # At any point you can hit Ctrl + C to break out of training early.
+    if config['optim'] == 'SGD':
+        optimizer = SGD(model.parameters(),lr = config['lr'])
+    elif config['optim'] == 'SGDM':
+        optimizer = SGD(model.parameters(),lr = config['lr'], momentum = 0.9)
+    elif config['optim'] == 'SGDM_new':
+        optimizer = SGD_new_momentum(model.parameters(),lr = config['lr'], momentum = 0.9)
+    elif config['optim'] == 'SGD_C':
+        optimizer = SGD_C(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGD_C_single':
+        optimizer = SGD_C_single(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGDM_C':
+        optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGD_C_Only':
+        optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGDM_C_Only':
+        optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'Adam_C':
+        optimizer = Adam_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'Adam_C_inter':
+        optimizer = Adam_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'], param_level = False)
+    elif config['optim'] == 'Adam_C_param':
+        optimizer = Adam_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'], param_level = True)
+    elif config['optim'] == 'Adam':
+        optimizer = Adam(model.parameters(), lr = config['lr'])
+    elif config['optim'] == 'RMSprop':
+        optimizer = RMSprop(model.parameters(), lr = config['lr'])
+    elif config['optim'] == 'RMSprop_C':
+        optimizer = RMSprop_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'RMSprop_C_single':
+        optimizer = RMSprop_C_single(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'Adam_C_single':
+        optimizer = Adam_C_single(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], sum = config['gradsum'])
+
+        
 
     for epoch in range(N_EPOCHS):
         epoch_start_time = time.time()
@@ -306,12 +317,12 @@ hyperparameters_mapping = {}
 PARAM_GRID = list(product(
     ['LSTM'],             # model
     [100, 101, 102, 103, 104], # seeds
-    ['ptb'],          # dataset
-    ['SGD'], # optimizer
-    [0.1, 0.01, 0.001, 0.0001],  # lr
+    ['wikitext', 'ptb'],          # dataset
+    ['Adam_C_single'], # optimizer
+    [0.0001],  # lr
     [0.9, 0.95, 0.99],  # decay
     [1, 2, 5, 10, 20],  # topC
-    ['mean', 'mid', 'sum'],         # sum
+    ['mean', 'sum'],         # sum
     [1.0]               # kappa
 ))
 
