@@ -429,8 +429,9 @@ class SGD_C_single(Optimizer):
                         crit_buf.sethyper(decay_rate = decay, K = topc)
                         crit_buf[d_p_norm] = deepcopy(d_p)
                     else:
-                        d_p = aggr(d_p, crit_buf, sum, kappa)
                         crit_buf = param_state['critical gradients']
+                        #
+                        aggr_grad = aggr(d_p, crit_buf, sum, kappa)
                         if crit_buf.isFull():
                             if d_p_norm > crit_buf.pokesmallest():
                                 self.offline_grad['yes'] +=1
@@ -439,6 +440,8 @@ class SGD_C_single(Optimizer):
                                 self.offline_grad['no'] +=1
                         else:
                             crit_buf[d_p_norm] = deepcopy(d_p)
+                        d_p = aggr_grad
+                        
                     # Critical Gradients
                     # x_new = x_old - lr * grad
                     # x_new = x_old - lr * (momentum * grad_<t + (1-dampening) * grad_t)

@@ -266,6 +266,8 @@ def HyperEvaluate(config):
         optimizer = SGD_C_single(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
     elif config['optim'] == 'SGDM_C':
         optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+    elif config['optim'] == 'SGDM_C_single':
+        optimizer = SGD_C_single(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
     elif config['optim'] == 'SGD_C_Only':
         optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
     elif config['optim'] == 'SGDM_C_Only':
@@ -318,8 +320,8 @@ PARAM_GRID = list(product(
     ['LSTM'],             # model
     [100, 101, 102, 103, 104], # seeds
     ['wikitext', 'ptb'],          # dataset
-    ['Adam_C_single'], # optimizer
-    [0.0001],  # lr
+    ['SGDM_C_single'], # optimizer
+    [0.1],  # lr
     [0.9, 0.95, 0.99],  # decay
     [1, 2, 5, 10, 20],  # topC
     ['mean', 'sum'],         # sum
