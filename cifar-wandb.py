@@ -4,7 +4,8 @@ from Model.Convnets import Cifar10CnnModel, Cifar100CnnModel, ClassDecoder, Logi
 
 import torch.optim as optim
 # from Utils.Eval_metric import getBLEU
-from optimizers.optim import SGD_C, SGD, Adam_C, Adam, SGD_C_Only, SAGA, SGD_C_single, SGD_new_momentum
+from optimizers.optim import SGD_C, SGD, Adam_C, Adam, RMSprop, RMSprop_C
+from optimizers.optimExperimental import SAGA
 
 from EncoderDecoder import EncoderDecoder
 import sys
@@ -29,6 +30,8 @@ import os.path as osp
 
 from filelock import FileLock
 
+import Model.cifar as models
+
 os.environ["WANDB_API_KEY"] = '90b23c86b7e5108683b793009567e676b1f93888'
 os.environ["WANDB_MODE"] = "dryrun"
 
@@ -46,7 +49,7 @@ parser.add_argument('--batch_size',type=int,default=64)
 parser.add_argument('--seed', type=int, default=100)
 parser.add_argument('--kappa', type=float, default = 1.0)
 parser.add_argument('--decay', type=float, default = 0.9)
-parser.add_argument('--gradsum',type=str,default='average')
+parser.add_argument('--aggr',type=str,default='average')
 parser.add_argument('--topC', type=int, default = 1)
 parser.add_argument('--lr', type=float, default=0.1)
 parser.add_argument('--gamma', type=float, default=0.7)
@@ -79,13 +82,13 @@ def train(model, iterator, optimizer, criterion, clip=10):
     for i, batch in enumerate(iterator):
         stats = None
 
-        if isinstance(model, Cifar100CnnModel) or isinstance(model, Cifar10CnnModel):
-            src = batch[0]
-        else:
-            src = batch[0].view(-1,784)
+       # if isinstance(model, Cifar100CnnModel) or isinstance(model, Cifar10CnnModel) or isinstance(model, resnet):
+        src = batch[0]
+       # else:
+       #     src = batch[0].view(-1,784)
         trg = batch[1]
         src, trg = src.to(device), trg.to(device)
-        output, hidden = model(src)
+        output = model(src)
         loss = criterion(output, trg)
         loss.backward()
 
@@ -125,14 +128,14 @@ def evaluate(model, iterator, criterion):
     total = 0
     with torch.no_grad():
         for i, batch in enumerate(iterator):
-            if isinstance(model, Cifar100CnnModel) or isinstance(model, Cifar10CnnModel):
-                src = batch[0]
-            else:
-                src = batch[0].view(-1,784)
+            #if isinstance(model, Cifar100CnnModel) or isinstance(model, Cifar10CnnModel):
+            src = batch[0]
+            #else:
+            #    src = batch[0].view(-1,784)
             trg = batch[1]
             src, trg = src.to(device), trg.to(device)
             total += trg.size(0)
-            output, hidden = model(src)
+            output = model(src)
             loss = criterion(output, trg)
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct = pred.eq(trg.view_as(pred)).sum()
@@ -153,13 +156,12 @@ def HyperEvaluate(config):
         BATCH_SIZE = args.batch_size
 
     if '_C' in config['optim']:
-        run_id = "seed_" + str(config['seed']) + '_LR_' + str(config['lr']) + '_topC_' + str(config['topC']) + '_decay_'+ str(config['decay'])+ '_kappa_' + str(config['kappa']) +'_'+config['gradsum']
+        run_id = "seed_" + str(config['seed']) + '_LR_' + str(config['lr']) + '_topC_' + str(config['topC']) + '_decay_'+ str(config['decay'])+ '_kappa_' + str(config['kappa']) +'_'+config['aggr']
     else:
         run_id = "seed_" + str(config['seed']) + '_LR_' + str(config['lr'])
 
     wandb.init(project="Critical-Gradients-" + config['dataset'], reinit = True)
     wandb.run.name = run_id
-    wandb.run.save()
 
     wandb.config.update(config)
 
@@ -177,7 +179,7 @@ def HyperEvaluate(config):
     if config['dataset'] == 'cifar10':
         dataloader = datasets.CIFAR10
         num_classes = 10
-    else:
+    elif config['dataset'] == 'cifar100':
         dataloader = datasets.CIFAR100
         num_classes = 100
 
@@ -199,36 +201,39 @@ def HyperEvaluate(config):
             model = Cifar10CnnModel()
         elif config['dataset'] == 'cifar100':
             model = Cifar100CnnModel()
-        model = model.to(device)
+
         optimizer = optim.Adadelta(model.parameters(), lr=config['lr'])
         scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    elif config['model'] == 'resnet':
+        model =  models.__dict__['resnet'](
+                    num_classes=num_classes,
+                    depth=110,
+                    block_name='BasicBlock',
+                )
 
     else:
         print('Error: Model Not There')
         sys.exit(0)
+        
+    model = model.to(device)
 
     if config['optim'] == 'SGD':
         optimizer = SGD(model.parameters(),lr = config['lr'])
     elif config['optim'] == 'SGDM':
         optimizer = SGD(model.parameters(),lr = config['lr'], momentum = 0.9)
-    elif config['optim'] == 'SGDM_new':
-        optimizer = SGD_new_momentum(model.parameters(),lr = config['lr'], momentum = 0.9)
     elif config['optim'] == 'SGD_C':
-        optimizer = SGD_C(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-    elif config['optim'] == 'SGD_C_single':
-        optimizer = SGD_C_single(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+        optimizer = SGD_C(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], aggr = config['aggr'])
     elif config['optim'] == 'SGDM_C':
-        optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-    elif config['optim'] == 'SGD_C_Only':
-        optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
-    elif config['optim'] == 'SGDM_C_Only':
-        optimizer = SGD_C_Only(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], sum = config['gradsum'])
+        optimizer = SGD_C(model.parameters(),lr = config['lr'], momentum = 0.9, decay=config['decay'], topC = config['topC'], aggr = config['aggr'])
     elif config['optim'] == 'Adam_C':
-        optimizer = Adam_C(model.parameters(), lr = config['lr'], kappa = config['kappa'], topC = config['topC'])
+        optimizer = Adam_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], aggr = config['aggr'])
     elif config['optim'] == 'Adam':
         optimizer = Adam(model.parameters(), lr = config['lr'])
-
-    criterion = nn.CrossEntropyLoss().to(device)
+    elif config['optim'] == 'RMSprop':
+        optimizer = RMSprop(model.parameters(), lr = config['lr'])
+    elif config['optim'] == 'RMSprop_C':
+        optimizer = RMSprop_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], aggr = config['aggr'])
+    criterion = nn.CrossEntropyLoss()
 
     # loss function calculates the average loss per token
     # passing the <pad> token to ignore_idx argument, we will ignore loss whenever the target token is <pad>
@@ -268,14 +273,14 @@ hyperparameters_mapping = {}
 
 
 PARAM_GRID = list(product(
-    ['convnet'],             # model
+    ['resnet', 'convnet'],             # model
     [100, 101, 102, 103, 104], # seeds
-    ['cifar10'],          # dataset
-    ['SGD'], # optimizer
+    ['cifar100'],          # dataset
+    ['SGD', 'SGDM', 'RMSprop', 'Adam'], # optimizer
     [0.1, 0.01, 0.001, 0.0001],  # lr
-    [0.9, 0.95, 0.99],  # decay
-    [1],  # topC
-    ['mean', 'mid', 'sum'],         # sum
+    [0],  # decay
+    [0],  # topC
+    ['none'],         # aggr
     [1.0]               # kappa
 ))
 
@@ -301,7 +306,7 @@ for param_ix in range(this_worker, len(PARAM_GRID), N_WORKERS):
     config['dataset'] =d
     config['optim'] = o
     config['decay'] = dec
-    config['gradsum'] = ch
+    config['aggr'] = ch
     config['topC'] = t
     config['kappa'] = k
 

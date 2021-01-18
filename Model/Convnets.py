@@ -52,39 +52,68 @@ class Cifar10CnnModel(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
-        return x, None
+        return x
 
 class Cifar100CnnModel(nn.Module):
+    """CNN."""
+
     def __init__(self):
-        super().__init__()
-        self.network = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2), # output: 64 x 16 x 16
+        """CNN Builder."""
+        super(Cifar100CnnModel, self).__init__()
 
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2), # output: 128 x 8 x 8
+        self.conv_layer = nn.Sequential(
 
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2), # output: 256 x 4 x 4
+            # Conv Layer block 1
+            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
 
-            nn.Flatten(),
-            nn.Linear(256*4*4, 1024),
-            nn.ReLU(),
+            # Conv Layer block 2
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout2d(p=0.05),
+
+            # Conv Layer block 3
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+
+
+        self.fc_layer = nn.Sequential(
+            nn.Dropout(p=0.1),
+            nn.Linear(4096, 1024),
+            nn.ReLU(inplace=True),
             nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Linear(512, 100))
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.1),
+            nn.Linear(512, 100)
+        )
 
-    def forward(self, xb):
-        return self.network(xb), None
+
+    def forward(self, x):
+        """Perform forward."""
+        
+        # conv layers
+        x = self.conv_layer(x)
+        
+        # flatten
+        x = x.view(x.size(0), -1)
+        
+        # fc layer
+        x = self.fc_layer(x)
+
+        return x
 
 class FCLayer(torch.nn.Module):
     def __init__(self, input_dim = 784, hidden_dim = 32 ,output_dim = 10,data = 'image'):
