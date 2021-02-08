@@ -1,34 +1,21 @@
 # from torchtext import data
 
-from Model.Convnets import Cifar10CnnModel, Cifar100CnnModel, ClassDecoder, LogisticRegression, FCLayer
+from Model.Convnets import Cifar10CnnModel, Cifar100CnnModel, Cifar100CnnModel_noDropOut
+
 
 import torch.optim as optim
-# from Utils.Eval_metric import getBLEU
 from optimizers.optim import SGD_C, SGD, Adam_C, Adam, RMSprop, RMSprop_C
 from optimizers.optimExperimental import SAGA
 
-from EncoderDecoder import EncoderDecoder
 import sys
-# sys.path.append('/home/ml/pparth2/anaconda3/lib/python3.7/site-packages')
 import torch
 import torch.nn as nn
-# import numpy as np
 import argparse
 import os
-# import logging
 import wandb
-# import random
-# import math
-# import csv
-# import torch.optim as optim
-from torchvision import datasets, transforms
-from torch.optim.lr_scheduler import StepLR
-import itertools
+
 from itertools import product
-
-import os.path as osp
-
-from filelock import FileLock
+from data_loader import load_data_subset
 
 import Model.cifar as models
 
@@ -39,25 +26,17 @@ os.environ["WANDB_MODE"] = "dryrun"
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--data_path', type = str, default = './Dataset')
+parser.add_argument('--data_path', type = str, default = '$SCRATCH/Dataset')
 parser.add_argument('--results_path', type=str, default = '.')
 
-parser.add_argument('--optimizer',type=str,default='SGD')
-parser.add_argument('--model',type=str,default='LR')
-parser.add_argument('--dataset',type=str,default='mnist')
-parser.add_argument('--batch_size',type=int,default=64)
-parser.add_argument('--seed', type=int, default=100)
-parser.add_argument('--kappa', type=float, default = 1.0)
-parser.add_argument('--decay', type=float, default = 0.9)
-parser.add_argument('--aggr',type=str,default='average')
-parser.add_argument('--topC', type=int, default = 1)
-parser.add_argument('--lr', type=float, default=0.1)
-parser.add_argument('--gamma', type=float, default=0.7)
+parser.add_argument('--batch_size', type=int, default=64)
 
 args = parser.parse_args()
 
 data_path = args.data_path
 results_path = args.results_path
+
+os.environ["WANDB_DIR"] = results_path
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -77,8 +56,6 @@ def train(model, iterator, optimizer, criterion, clip=10):
     # loss
     epoch_loss = 0
     S = {'yes':0,'no':0}
-    id_to_hidden = {}
-    # TODO:  convert the hiddenstate to string and save it as text file
     for i, batch in enumerate(iterator):
         stats = None
 
@@ -89,6 +66,7 @@ def train(model, iterator, optimizer, criterion, clip=10):
         trg = batch[1]
         src, trg = src.to(device), trg.to(device)
         output = model(src)
+        optimizer.zero_grad()
         loss = criterion(output, trg)
         loss.backward()
 
@@ -128,10 +106,7 @@ def evaluate(model, iterator, criterion):
     total = 0
     with torch.no_grad():
         for i, batch in enumerate(iterator):
-            #if isinstance(model, Cifar100CnnModel) or isinstance(model, Cifar10CnnModel):
             src = batch[0]
-            #else:
-            #    src = batch[0].view(-1,784)
             trg = batch[1]
             src, trg = src.to(device), trg.to(device)
             total += trg.size(0)
@@ -165,34 +140,17 @@ def HyperEvaluate(config):
 
     wandb.config.update(config)
 
-    transform_train = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
 
-    transform_test = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
+    MODEL_SAVE_PATH = os.path.join('Results', config['dataset'], config['model'] + '_' + config['optim'],'Model',run_id)
+    if not os.path.exists(MODEL_SAVE_PATH):
+        os.makedirs(MODEL_SAVE_PATH)
+
     if config['dataset'] == 'cifar10':
-        dataloader = datasets.CIFAR10
-        num_classes = 10
+        train_iterator, valid_iterator, _, test_iterator, num_classes = load_data_subset(data_aug=1, batch_size=BATCH_SIZE,
+                                                                                         workers=0, dataset='cifar10', data_target_dir = data_path, labels_per_class=5000, valid_labels_per_class=500)
     elif config['dataset'] == 'cifar100':
-        dataloader = datasets.CIFAR100
-        num_classes = 100
-
-    BATCH_SIZE = args.batch_size
-
-    trainset = dataloader(root='./Dataset', train=True, download=True, transform=transform_train)
-    train_iterator = torch.utils.data.DataLoader(trainset, batch_size=BATCH_SIZE, shuffle=True)
-
-    testset = dataloader(root='./Dataset', train=False, download=False, transform=transform_test)
-    valid_iterator = torch.utils.data.DataLoader(testset, batch_size=BATCH_SIZE, shuffle=False)
-
-
-    INPUT_DIM = 10
+            train_iterator, valid_iterator, _, test_iterator, num_classes = load_data_subset(data_aug=1, batch_size=BATCH_SIZE,
+                                                                                             workers=0, dataset='cifar100', data_target_dir = data_path, labels_per_class=500, valid_labels_per_class=50)
 
     # encoder
 
@@ -203,7 +161,8 @@ def HyperEvaluate(config):
             model = Cifar100CnnModel()
 
         optimizer = optim.Adadelta(model.parameters(), lr=config['lr'])
-        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    elif config['model'] == 'convnet_noDropOut':
+        model =Cifar100CnnModel_noDropOut()
     elif config['model'] == 'resnet':
         model =  models.__dict__['resnet'](
                     num_classes=num_classes,
@@ -214,7 +173,7 @@ def HyperEvaluate(config):
     else:
         print('Error: Model Not There')
         sys.exit(0)
-        
+
     model = model.to(device)
 
     if config['optim'] == 'SGD':
@@ -235,54 +194,54 @@ def HyperEvaluate(config):
         optimizer = RMSprop_C(model.parameters(), lr = config['lr'], decay=config['decay'], kappa = config['kappa'], topC = config['topC'], aggr = config['aggr'])
     criterion = nn.CrossEntropyLoss()
 
-    # loss function calculates the average loss per token
-    # passing the <pad> token to ignore_idx argument, we will ignore loss whenever the target token is <pad>
-
 
     best_validation_perf = float('-inf')
+    best_test_perf = float('-inf')
+    best_test_loss = float('inf')
 
     for epoch in range(N_EPOCHS):
-        valid_perf = 'NA'
 
         train_loss,offline_stats = train(model, train_iterator, optimizer, criterion )
         valid_loss, valid_perf = evaluate(model, valid_iterator, criterion)
+        test_loss, test_perf =  evaluate(model, test_iterator, criterion)
 
         off = offline_stats['no']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
         on = offline_stats['yes']*100/(sum([v for v in offline_stats.values()]) + 1e-7)
+
+        wandb.log({"Train Loss": train_loss, "Validation Loss": valid_loss, "Val. Accuracy": valid_perf, "Test Loss": test_loss, "Test Accuracy": test_perf, "offline updates" : off, "online udpates": on})
+
+        if config['stats']:
+            gc_v_gt = optimizer.getAnalysis()
+            wandb.log({'gt':gc_v_gt['gt']/gc_v_gt['count'],'gc':gc_v_gt['gc']/gc_v_gt['count']})
 
         optimizer.resetOfflineStats()
         #torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,config['model']+'_'+str(epoch)+'.pt'))
         if valid_perf > best_validation_perf:
            best_validation_perf = valid_perf
-          # torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,'best_model.pt'))
+           torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,'best_model.pt'))
 
-        wandb.log({"Train Loss": train_loss, "Validation Loss": valid_loss, "Val. Accuracy": valid_perf, "offline updates" : off, "online udpates": on})
+        if test_loss < best_test_loss:
+            best_test_loss = test_loss
 
-        #scheduler.step()
-    return best_validation_perf
+        if test_perf > best_test_perf:
+            best_test_perf = test_perf
 
-
-best_hyperparameters = None
-best_accuracy = 0
-# A list holding the object IDs for all of the experiments that we have
-# launched but have not yet been processed.
-remaining_ids = []
-# A dictionary mapping an experiment's object ID to its hyperparameters.
-# hyerparameters used for that experiment.
-hyperparameters_mapping = {}
+    return best_validation_perf, best_test_loss, best_test_perf
 
 
 PARAM_GRID = list(product(
-    ['resnet', 'convnet'],             # model
+    ['convnet'],             # model
     [100, 101, 102, 103, 104], # seeds
-    ['cifar100'],          # dataset
-    ['SGD', 'SGDM', 'RMSprop', 'Adam'], # optimizer
-    [0.1, 0.01, 0.001, 0.0001],  # lr
-    [0],  # decay
-    [0],  # topC
-    ['none'],         # aggr
-    [1.0]               # kappa
+    ['cifar10'],          # dataset
+    ['SGD_C'], # optimizer
+    [0.001],  # lr
+    [0.9],  # decay
+    [5, 10, 20, 50, 100],  # topC
+    ['mean'],         # aggr
+    [1.0],               # kappa
+    [True]  #stats
 ))
+
 
 # total number of slurm workers detected
 # defaults to 1 if not running under SLURM
@@ -297,7 +256,7 @@ for param_ix in range(this_worker, len(PARAM_GRID), N_WORKERS):
     params = PARAM_GRID[param_ix]
 
 
-    m, s, d, o, l, dec, t, ch, k = params
+    m, s, d, o, l, dec, t, ch, k, ts = params
 
     config = {}
     config['model'] = m
@@ -305,17 +264,19 @@ for param_ix in range(this_worker, len(PARAM_GRID), N_WORKERS):
     config['lr'] = l
     config['dataset'] =d
     config['optim'] = o
-    config['decay'] = dec
-    config['aggr'] = ch
-    config['topC'] = t
-    config['kappa'] = k
+    config['stats'] = ts
+    if "_C" in o:
+        config['decay'] = dec
+        config['aggr'] = ch
+        config['topC'] = t
+        config['kappa'] = k
+    else:
+        config['decay'] = 0
+        config['aggr'] = 'none'
+        config['topC'] = 0
+        config['kappa'] = 0
 
-    accuracy = HyperEvaluate(config)
 
-    print("""We achieve accuracy {:7.2f}% with
-        learning_rate: {:.4}
-        seed: {}
-        Optimizer: {}
-      """.format(accuracy, l, s, o))
-
+    val_loss, test_loss, test_ppl = HyperEvaluate(config)
+    wandb.log({'Best Validation Loss': val_loss, 'Best Test Loss': test_loss, 'Best Test Perplexity': test_ppl})
 

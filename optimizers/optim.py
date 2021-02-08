@@ -141,9 +141,16 @@ class SGD_C(Optimizer):
 
         super(SGD_C, self).__init__(params, defaults)
         self.resetOfflineStats()
+        self.resetAnalysis()
 
     def getOfflineStats(self):
         return self.offline_grad
+
+    def getAnalysis(self):
+        return self.g_analysis
+
+    def resetAnalysis(self):
+        self.g_analysis = {'gt':0.,'gc':0., 'count':0}
 
     def resetOfflineStats(self):
         self.offline_grad = {'yes':0,'no':0}
@@ -160,7 +167,7 @@ class SGD_C(Optimizer):
         loss = None
         if closure is not None:
             loss = closure()
-
+        count = 0.0
         for group in self.param_groups:
             weight_decay = group['weight_decay']
             kappa = group['kappa']
@@ -170,6 +177,7 @@ class SGD_C(Optimizer):
            # nesterov = group['nesterov']
             topc = group['topC']
             aggr = group['aggr']
+            count += 0.
 
             for p in group['params']:
                 if p.grad is None:
@@ -197,7 +205,10 @@ class SGD_C(Optimizer):
                         else:
                             crit_buf[d_p_norm] = deepcopy(d_p)
                         d_p = aggr_grad
-                        
+
+                    self.g_analysis['gc'] += crit_buf.averageTopC()
+                    self.g_analysis['count']+=1
+                    self.g_analysis['gt']+=p.grad.data.norm()
                     # Critical Gradients
                     # x_new = x_old - lr * grad
                     # x_new = x_old - lr * (momentum * grad_<t + (1-dampening) * grad_t)
@@ -205,7 +216,6 @@ class SGD_C(Optimizer):
                     # CG method:
                     # x_new = x_old - lr * (momentum * grad_CG + (1-dampening) * grad_t)
                     # grad_CG <- topk gradients
-                    
 
                     crit_buf.decay()
 
@@ -341,11 +351,11 @@ class Adam(Optimizer):
 
         return loss
 
-    
+
 class Adam_C(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, decay = 0.95, kappa = 1.0, topC = 10,
-                 weight_decay=0, amsgrad=False, aggr ='sum'): #decay=0.9
+                 weight_decay=0, amsgrad=False, aggr ='mean'): #decay=0.9
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -358,6 +368,7 @@ class Adam_C(Optimizer):
                         weight_decay=weight_decay, aggr=aggr, amsgrad=amsgrad, kappa = kappa, topC = topC, decay = decay)
         super(Adam_C, self).__init__(params, defaults)
         self.resetOfflineStats()
+        self.resetAnalysis()
 
     def getOfflineStats(self):
         return self.offline_grad
@@ -369,6 +380,12 @@ class Adam_C(Optimizer):
         super(Adam_C, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
+
+    def getAnalysis(self):
+        return self.g_analysis
+
+    def resetAnalysis(self):
+        self.g_analysis = {'gt':0.,'gc':0., 'count':0}
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -421,9 +438,9 @@ class Adam_C(Optimizer):
                             else:
                                 self.offline_grad['no'] +=1
                         else:
-                            state['critical gradients'][grad_norm] = deepcopy(grad)     
+                            state['critical gradients'][grad_norm] = deepcopy(grad)
                     grad = aggr_grad
-                
+
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
                 if amsgrad:
                     max_exp_avg_sq = state['max_exp_avg_sq']
@@ -448,7 +465,13 @@ class Adam_C(Optimizer):
                     denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
 
                 step_size = group['lr'] / bias_correction1
+
+                self.g_analysis['gc'] += state['critical gradients'].averageTopC()
+                self.g_analysis['count']+=1
+                self.g_analysis['gt']+=p.grad.data.norm()
+
                 state['critical gradients'].decay()
+
 
                 p.addcdiv_(exp_avg, denom, value = -step_size)
 
@@ -558,7 +581,7 @@ class RMSprop(Optimizer):
                     p.addcdiv_(grad, avg, value=-group['lr'])
 
         return loss
-    
+
     def getOfflineStats(self):
         return self.offline_grad
 
@@ -568,7 +591,7 @@ class RMSprop(Optimizer):
 
 class RMSprop_C(Optimizer):
 
-    def __init__(self, params, lr=1e-2, alpha=0.99, eps=1e-8, weight_decay=0, momentum=0, centered=False, decay = 0.95, kappa = 1.0, topC = 10, aggr='sum'):
+    def __init__(self, params, lr=1e-2, alpha=0.99, eps=1e-8, weight_decay=0, momentum=0, centered=False, decay = 0.95, kappa = 1.0, topC = 10, aggr='mean'):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -645,7 +668,7 @@ class RMSprop_C(Optimizer):
                 alpha = group['alpha']
 
                 state['step'] += 1
-                
+
                 if group['weight_decay'] != 0:
                     grad = grad.add(p, alpha=group['weight_decay'])
 
@@ -668,7 +691,7 @@ class RMSprop_C(Optimizer):
                     p.addcdiv_(grad, avg, value=-group['lr'])
 
         return loss
-    
+
     def getOfflineStats(self):
         return self.offline_grad
 

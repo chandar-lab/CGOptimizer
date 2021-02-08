@@ -1,8 +1,5 @@
 import math
 import torch
-#import sys
-#import os
-#sys.path.append(os.path.expanduser('~/Documents/CriticalGradientOptimization/optimizers'))
 from torch.optim import Optimizer
 from .priorityDict import priority_dict
 from copy import deepcopy
@@ -241,7 +238,7 @@ class SGD_C_double(Optimizer):
                     # CG method:
                     # x_new = x_old - lr * (momentum * grad_CG + (1-dampening) * grad_t)
                     # grad_CG <- topk gradients
-                    
+
                     d_p = aggr(d_p, crit_buf, sum, kappa)
                     crit_buf.decay()
 
@@ -260,7 +257,7 @@ class SGD_C_double(Optimizer):
                 p.data.add_(d_p, alpha = -group['lr'])
 
         return loss
-    
+
 class SGD_C_Only(Optimizer):
     r"""Implements SGD (optionally with momentum) while keeping a record of critical
     gradients (top C gradients by norm). Replaces the gradient in conventional
@@ -366,7 +363,7 @@ class SGD_C_Only(Optimizer):
                 p.data.add_(d_p, alpha = -group['lr'])
 
         return loss
-      
+
 class Adam_C_double(Optimizer):
     r"""Implements Adam algorithm.
     It has been proposed in `Adam: A Method for Stochastic Optimization`_.
@@ -500,7 +497,7 @@ class Adam_C_double(Optimizer):
 
 
         return loss
-    
+
 class RMSprop_C_double(Optimizer):
     r"""Implements RMSprop algorithm.
     Proposed by G. Hinton in his
@@ -603,7 +600,7 @@ class RMSprop_C_double(Optimizer):
 
                 if kappa > 0.:
                     grad = aggr(grad, state['critical gradients'], sum)
-                
+
                 if group['weight_decay'] != 0:
                     grad = grad.add(p, alpha=group['weight_decay'])
 
@@ -626,10 +623,10 @@ class RMSprop_C_double(Optimizer):
                     p.addcdiv_(grad, avg, value=-group['lr'])
 
         return loss
-    
+
     def getOfflineStats(self):
         return self.offline_grad
 
     def resetOfflineStats(self):
         self.offline_grad = {'yes':0,'no':0}
-        
+

@@ -12,3 +12,4 @@ Dataset/*
 *checkpoint*
 */Graphs
 wandb/*
+.ipynb_checkpoints/*

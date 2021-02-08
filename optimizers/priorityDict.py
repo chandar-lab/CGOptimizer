@@ -48,9 +48,10 @@ class priority_dict(dict):
 
     def _rebuild_heap(self):
         self._heap = [it for it in self._heap if it.p > 0.0]
-        heapify(self._heap)
-        if not self.isEmpty() and self.isFull():
-            self._reorder()
+        if len(self._heap) > 0:
+            heapify(self._heap)
+            if not self.isEmpty() and self.isFull():
+                self._reorder()
 
     def isEmpty(self):
         if len(self._heap) == 0:
@@ -64,6 +65,12 @@ class priority_dict(dict):
         if len(self._heap) < self.k:
             return False
         return True
+
+    def averageTopC(self):
+      ave = 0.
+      if len(self._heap) > 0:
+        ave = sum([it.t.norm() for it in self._heap])/float(len(self._heap))
+      return ave
 
     def pokesmallest(self):
         """Return the lowest priority.
