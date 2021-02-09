@@ -2,6 +2,7 @@ from heapq import heapify, heappush, heappop
 import torch
 from copy import deepcopy
 
+
 class HeapItem:
     def __init__(self, p, t):
         self.p = p
@@ -9,6 +10,7 @@ class HeapItem:
 
     def __lt__(self, other):
         return self.p < other.p
+
 
 class priority_dict(dict):
     """Dictionary that can be used as a priority queue.
@@ -33,18 +35,16 @@ class priority_dict(dict):
     def size(self):
         return len(self._heap)
 
-    def sethyper(self,decay_rate = 0.5, K = 5):
+    def sethyper(self, decay_rate=0.5, K=5):
         self.k = K
         self.decay_rate = decay_rate
 
     def _reorder(self):
-        #super(priority_dict, self).__init__(self._heap[-self.k:])
         self._heap = deepcopy(self._heap[-self.k:])
         in_heap = [it.p for it in self._heap]
         del_ = [k for k in self.keys() if k not in in_heap]
         for k in del_:
             del self[k]
-
 
     def _rebuild_heap(self):
         self._heap = [it for it in self._heap if it.p > 0.0]
@@ -59,7 +59,7 @@ class priority_dict(dict):
         return False
 
     def decay(self):
-        self._heap = [HeapItem(self.decay_rate*it.p, it.t) for it in self._heap]
+        self._heap = [HeapItem(self.decay_rate * it.p, it.t) for it in self._heap]
 
     def isFull(self):
         if len(self._heap) < self.k:
@@ -67,10 +67,10 @@ class priority_dict(dict):
         return True
 
     def averageTopC(self):
-      ave = 0.
-      if len(self._heap) > 0:
-        ave = sum([it.t.norm() for it in self._heap])/float(len(self._heap))
-      return ave
+        ave = 0.
+        if len(self._heap) > 0:
+            ave = sum([it.t.norm() for it in self._heap]) / float(len(self._heap))
+        return ave
 
     def pokesmallest(self):
         """Return the lowest priority.
@@ -101,8 +101,7 @@ class priority_dict(dict):
             sum.add_(it.t)
         return sum
 
-    def __getitem__(self,key):
-
+    def __getitem__(self, key):
         return dict(self._heap)
 
     def __len__(self):
@@ -112,7 +111,6 @@ class priority_dict(dict):
         # We are not going to remove the previous value from the heap,
         # since this would have a cost O(n).
 
-        #super(priority_dict, self).__setitem__(key, val)
         self._heap.append(HeapItem(key, val))
         self._rebuild_heap()
 
