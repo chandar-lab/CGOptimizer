@@ -16,3 +16,9 @@ Dataset/*
 synced.txt
 *.sh
 *mycache/*
+data/
+db/
+Utils_/
+*.gif
+*logs*
+*.ckpt*
