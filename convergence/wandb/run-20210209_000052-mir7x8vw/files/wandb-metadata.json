@@ -1,0 +1,22 @@
+{
+    "os": "Windows-10-10.0.19041-SP0",
+    "python": "3.8.3",
+    "heartbeatAt": "2021-02-09T05:00:56.608459",
+    "startedAt": "2021-02-09T05:00:52.609344",
+    "docker": null,
+    "cpu_count": 4,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "codePath": "convergence\\convergence.py",
+    "program": "C:/Users/Maritchou/MILA/CriticalGradientOptimization/convergence/convergence.py",
+    "git": {
+        "remote": "https://github.com/chandar-lab/CriticalGradientOptimization",
+        "commit": "c28f61aab168721cafccaa6967678d112f050ef0"
+    },
+    "email": "36385319+Dichimanaym@users.noreply.github.com",
+    "root": "C:/Users/Maritchou/MILA/CriticalGradientOptimization",
+    "host": "THE_BATCOMPUTER",
+    "username": "Maritchou",
+    "executable": "C:\\Users\\Maritchou\\anaconda3\\python.exe"
+}

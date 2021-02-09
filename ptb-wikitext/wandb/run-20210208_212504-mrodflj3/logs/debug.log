@@ -1,0 +1,10 @@
+2021-02-08 21:25:04,262 INFO    MainThread:17988 [wandb_init.py:_log_setup():292] Logging user logs to wandb\run-20210208_212504-mrodflj3\logs\debug.log
+2021-02-08 21:25:04,263 INFO    MainThread:17988 [wandb_init.py:_log_setup():293] Logging internal logs to wandb\run-20210208_212504-mrodflj3\logs\debug-internal.log
+2021-02-08 21:25:04,263 INFO    MainThread:17988 [wandb_setup.py:_flush():68] setting env: {}
+2021-02-08 21:25:04,263 INFO    MainThread:17988 [wandb_setup.py:_flush():68] setting user settings: {}
+2021-02-08 21:25:04,263 INFO    MainThread:17988 [wandb_setup.py:_flush():68] multiprocessing start_methods=spawn
+2021-02-08 21:25:08,719 INFO    MainThread:17988 [wandb_run.py:_console_start():1265] atexit reg
+2021-02-08 21:25:08,744 INFO    MainThread:17988 [wandb_run.py:_redirect():1135] redirect: SettingsConsole.WRAP
+2021-02-08 21:25:08,744 INFO    MainThread:17988 [wandb_run.py:_redirect():1166] Wrapping output streams.
+2021-02-08 21:25:08,745 INFO    MainThread:17988 [wandb_run.py:_redirect():1182] Redirects installed.
+2021-02-08 21:25:08,803 INFO    MainThread:17988 [wandb_run.py:_config_callback():581] config_cb None None {'_wandb': {'cli_version': '0.10.5', 'python_version': '3.8.3', 'is_jupyter_run': False, 'is_kaggle_kernel': False, 'framework': 'torch'}, 'model': 'LSTM', 'seed': 100, 'lr': 0.1, 'dataset': 'ptb', 'optim': 'RMSprop_C', 'stats': True, 'layers': 2, 'decay': 0.7, 'aggr': 'mean', 'topC': 10, 'kappa': 1.0}

@@ -1,0 +1,40 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.10.5
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.8.3
+aggr:
+  desc: null
+  value: sum
+dataset:
+  desc: null
+  value: covtype
+decay:
+  desc: null
+  value: 0.7
+kappa:
+  desc: null
+  value: 1.0
+l2:
+  desc: null
+  value: true
+lr:
+  desc: null
+  value: 0.01
+model:
+  desc: null
+  value: LR
+optim:
+  desc: null
+  value: SGD_C
+seed:
+  desc: null
+  value: 100
+topC:
+  desc: null
+  value: 10

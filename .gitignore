@@ -13,6 +13,6 @@ Dataset/*
 */Graphs
 *wandb/*
 .ipynb_checkpoints/*
-*synced.txt*
-*.sh*
+synced.txt
+*.sh
 *mycache/*

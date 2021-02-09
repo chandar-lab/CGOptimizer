@@ -1,0 +1,72 @@
+2021-02-08 21:22:28,961 INFO    MainThread:6712 [internal.py:wandb_internal():62] W&B internal server running at pid: 6712
+2021-02-08 21:22:28,964 INFO    WriterThread:6712 [datastore.py:open_for_write():76] open: wandb\run-20210208_212225-1rjnrld2\run-1rjnrld2.wandb
+2021-02-08 21:22:28,965 DEBUG   HandlerThread:6712 [handler.py:handle_request():54] handle_request: check_version
+2021-02-08 21:22:28,968 DEBUG   SenderThread:6712 [sender.py:send():88] send: header
+2021-02-08 21:22:28,977 DEBUG   SenderThread:6712 [sender.py:send():88] send: request
+2021-02-08 21:22:28,978 DEBUG   SenderThread:6712 [sender.py:send_request():97] send_request: check_version
+2021-02-08 21:22:28,985 DEBUG   Thread-8  :6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): pypi.org:443
+2021-02-08 21:22:30,086 DEBUG   Thread-8  :6712 [connectionpool.py:_make_request():433] https://pypi.org:443 "GET /pypi/wandb/json HTTP/1.1" 200 53965
+2021-02-08 21:22:30,112 DEBUG   SenderThread:6712 [sender.py:send():88] send: run
+2021-02-08 21:22:30,158 DEBUG   SenderThread:6712 [util.py:is_cygwin_git():315] Failed checking if running in CYGWIN due to: FileNotFoundError(2, 'The system cannot find the file specified', None, 2, None)
+2021-02-08 21:22:30,164 DEBUG   SenderThread:6712 [cmd.py:execute():718] Popen(['git', 'cat-file', '--batch-check'], cwd=C:\Users\Maritchou\MILA\CriticalGradientOptimization, universal_newlines=False, shell=None, istream=<valid stream>)
+2021-02-08 21:22:30,374 DEBUG   SenderThread:6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:22:30,713 DEBUG   SenderThread:6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2021-02-08 21:22:30,842 DEBUG   HandlerThread:6712 [handler.py:handle_request():54] handle_request: run_start
+2021-02-08 21:22:30,924 INFO    SenderThread:6712 [dir_watcher.py:__init__():167] watching files in: wandb\run-20210208_212225-1rjnrld2\files
+2021-02-08 21:22:30,925 INFO    SenderThread:6712 [sender.py:_start_run_threads():461] run started: 1rjnrld2 with start time 1612837346
+2021-02-08 21:22:30,925 DEBUG   SenderThread:6712 [sender.py:send():88] send: summary
+2021-02-08 21:22:30,927 INFO    SenderThread:6712 [sender.py:_save_file():542] saving file wandb-summary.json with policy end
+2021-02-08 21:22:30,931 DEBUG   HandlerThread:6712 [cmd.py:execute():718] Popen(['git', 'cat-file', '--batch-check'], cwd=C:\Users\Maritchou\MILA\CriticalGradientOptimization, universal_newlines=False, shell=None, istream=<valid stream>)
+2021-02-08 21:22:31,076 DEBUG   HandlerThread:6712 [cmd.py:execute():718] Popen(['git', 'rev-parse', '--show-toplevel'], cwd=C:\Users\Maritchou\MILA\CriticalGradientOptimization, universal_newlines=False, shell=None, istream=None)
+2021-02-08 21:22:31,929 INFO    Thread-12 :6712 [dir_watcher.py:_on_file_created():215] file/dir created: wandb\run-20210208_212225-1rjnrld2\files\wandb-summary.json
+2021-02-08 21:22:31,930 INFO    Thread-12 :6712 [dir_watcher.py:_on_file_created():215] file/dir created: wandb\run-20210208_212225-1rjnrld2\files\wandb-metadata.json
+2021-02-08 21:22:31,930 INFO    Thread-12 :6712 [dir_watcher.py:_on_file_created():215] file/dir created: wandb\run-20210208_212225-1rjnrld2\files\requirements.txt
+2021-02-08 21:22:32,124 DEBUG   SenderThread:6712 [sender.py:send():88] send: files
+2021-02-08 21:22:32,125 INFO    SenderThread:6712 [sender.py:_save_file():542] saving file wandb-metadata.json with policy now
+2021-02-08 21:22:32,125 DEBUG   HandlerThread:6712 [handler.py:handle_request():54] handle_request: status
+2021-02-08 21:22:32,128 DEBUG   SenderThread:6712 [sender.py:send():88] send: request
+2021-02-08 21:22:32,129 DEBUG   SenderThread:6712 [sender.py:send_request():97] send_request: status
+2021-02-08 21:22:32,133 DEBUG   SenderThread:6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:22:32,142 DEBUG   Thread-17 :6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:22:32,266 DEBUG   SenderThread:6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2021-02-08 21:22:32,269 DEBUG   SenderThread:6712 [sender.py:send():88] send: run
+2021-02-08 21:22:32,283 DEBUG   SenderThread:6712 [cmd.py:execute():718] Popen(['git', 'cat-file', '--batch-check'], cwd=C:\Users\Maritchou\MILA\CriticalGradientOptimization, universal_newlines=False, shell=None, istream=<valid stream>)
+2021-02-08 21:22:32,314 DEBUG   Thread-17 :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2021-02-08 21:22:32,325 DEBUG   Thread-17 :6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): storage.googleapis.com:443
+2021-02-08 21:22:32,451 DEBUG   SenderThread:6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:22:32,624 DEBUG   SenderThread:6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2021-02-08 21:22:32,799 DEBUG   Thread-17 :6712 [connectionpool.py:_make_request():433] https://storage.googleapis.com:443 "PUT /wandb-production.appspot.com/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/wandb-metadata.json?Expires=1612923752&GoogleAccessId=wandb-production%40appspot.gserviceaccount.com&Signature=gw03spKz1Tev%2Fx%2Bf2gFrjlHsFoozKQat8K9ox%2F5fVoD4ueqP8zS1Zwf7P7GjxH%2Fda%2B3jMhexLSM6TZSA31XNGTJFu8TTAdxcSLuFeYu5fqWQHIWbCHC6f5E11E1kVKQN8zjREL8u8ALFLLaUGVJL7FlagGahwdQ9OjxK%2B9GCY0Y67zh3NRFgGBDKXpZjgoPchCBi%2FZ%2BVAL5Wbfdd4BB6r%2BEV4aE152tk94hicgeTQkpYR%2BgBgQjUxeJ0w7FKnJzc83Ff4KxE1rnWapDBCEXC4NJc0JrxKAUqGAJCh5h9%2B8jNuuevWGIO2d52pLARekl%2BH3bc1N1BhsdWoowxUW6YNw%3D%3D HTTP/1.1" 200 0
+2021-02-08 21:22:32,799 INFO    SenderThread:6712 [sender.py:send_run():374] updated run: 1rjnrld2
+2021-02-08 21:22:32,800 DEBUG   SenderThread:6712 [sender.py:send():88] send: config
+2021-02-08 21:22:32,809 INFO    Thread-17 :6712 [upload_job.py:push():112] Uploaded file C:\Users\MARITC~1\AppData\Local\Temp\tmpuc6z2s4swandb\3a6h98gk-wandb-metadata.json
+2021-02-08 21:22:32,811 DEBUG   SenderThread:6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:22:32,936 DEBUG   Thread-9  :6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:22:32,937 INFO    Thread-12 :6712 [dir_watcher.py:_on_file_modified():228] file/dir modified: wandb\run-20210208_212225-1rjnrld2\files\config.yaml
+2021-02-08 21:22:32,938 INFO    Thread-12 :6712 [dir_watcher.py:_on_file_created():215] file/dir created: wandb\run-20210208_212225-1rjnrld2\files\output.log
+2021-02-08 21:22:32,939 DEBUG   SenderThread:6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2021-02-08 21:22:33,109 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None
+2021-02-08 21:22:33,944 INFO    Thread-12 :6712 [dir_watcher.py:_on_file_modified():228] file/dir modified: wandb\run-20210208_212225-1rjnrld2\files\config.yaml
+2021-02-08 21:22:35,006 DEBUG   SenderThread:6712 [sender.py:send():88] send: stats
+2021-02-08 21:22:35,117 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None
+2021-02-08 21:22:39,950 DEBUG   SenderThread:6712 [sender.py:send():88] send: stats
+2021-02-08 21:22:40,034 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None
+2021-02-08 21:22:44,913 DEBUG   SenderThread:6712 [sender.py:send():88] send: stats
+2021-02-08 21:22:45,011 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None
+2021-02-08 21:22:47,456 DEBUG   HandlerThread:6712 [handler.py:handle_request():54] handle_request: status
+2021-02-08 21:22:47,456 DEBUG   SenderThread:6712 [sender.py:send():88] send: request
+2021-02-08 21:22:47,457 DEBUG   SenderThread:6712 [sender.py:send_request():97] send_request: status
+2021-02-08 21:22:47,460 DEBUG   SenderThread:6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:22:48,554 DEBUG   SenderThread:6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2021-02-08 21:22:49,834 DEBUG   SenderThread:6712 [sender.py:send():88] send: stats
+2021-02-08 21:22:49,920 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None
+2021-02-08 21:22:54,758 DEBUG   SenderThread:6712 [sender.py:send():88] send: stats
+2021-02-08 21:22:54,847 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None
+2021-02-08 21:22:59,676 DEBUG   SenderThread:6712 [sender.py:send():88] send: stats
+2021-02-08 21:22:59,789 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None
+2021-02-08 21:23:03,573 DEBUG   HandlerThread:6712 [handler.py:handle_request():54] handle_request: status
+2021-02-08 21:23:03,573 DEBUG   SenderThread:6712 [sender.py:send():88] send: request
+2021-02-08 21:23:03,573 DEBUG   SenderThread:6712 [sender.py:send_request():97] send_request: status
+2021-02-08 21:23:03,577 DEBUG   SenderThread:6712 [connectionpool.py:_new_conn():937] Starting new HTTPS connection (1): api.wandb.ai:443
+2021-02-08 21:23:03,678 DEBUG   SenderThread:6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /graphql HTTP/1.1" 200 None
+2021-02-08 21:23:04,597 DEBUG   SenderThread:6712 [sender.py:send():88] send: stats
+2021-02-08 21:23:04,711 DEBUG   Thread-9  :6712 [connectionpool.py:_make_request():433] https://api.wandb.ai:443 "POST /files/aymeric-mcrae/Critical-Gradients-LSTM-ptb/1rjnrld2/file_stream HTTP/1.1" 200 None

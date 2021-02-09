@@ -1,0 +1,5 @@
+C:\Users\Maritchou\MILA\CriticalGradientOptimization\optimizers\optim.py:186: UserWarning: This overload of add is deprecated:
+	add(Number alpha, Tensor other)
+Consider using one of the following signatures instead:
+	add(Tensor other, *, Number alpha) (Triggered internally at  ..\torch\csrc\utils\python_arg_parser.cpp:882.)
+  d_p = d_p.add(weight_decay, p.data)
