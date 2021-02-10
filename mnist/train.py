@@ -19,7 +19,7 @@ from optimizers.optim import SGD_C, SGD, Adam_C, Adam, RMSprop, RMSprop_C
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--data_path', type=str, default='../Dataset')
+parser.add_argument('--data_path', type=str, default='./Dataset')
 parser.add_argument('--results_path', type=str, default='.')
 
 parser.add_argument('--batch_size', type=int, default=64)
@@ -68,10 +68,7 @@ def train(model, iterator, optimizer, criterion, clip=10):
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
 
         # update the parameters
-        if isinstance(optimizer, SAGA):
-            optimizer.step(index=i)
-        else:
-            optimizer.step()
+        optimizer.step()
         stats = optimizer.getOfflineStats()
         if stats:
             for k, v in stats.items():
@@ -117,14 +114,15 @@ def evaluate(model, iterator, criterion):
 
 
 def HyperEvaluate(config):
+    """
+    Completes training, validation, and testing for one set of hyperparameters
+    :param config: dictionary of hyperparameters to train on
+    :return: Best validation performance, best test performance/loss
+    """
     torch.manual_seed(config['seed'])
 
-    if config['optim'] == 'SAGA':
-        N_EPOCHS = 25  # number of epochs
-        BATCH_SIZE = 1
-    else:
-        N_EPOCHS = 25  # number of epochs
-        BATCH_SIZE = args.batch_size
+    N_EPOCHS = 25  # number of epochs
+    BATCH_SIZE = args.batch_size
 
     if '_C' in config['optim']:
         run_id = "seed_" + str(config['seed']) + '_LR_' + str(config['lr']) + '_topC_' + str(
@@ -203,12 +201,13 @@ def HyperEvaluate(config):
         wandb.log({"Train Loss": train_loss, "Validation Loss": valid_loss, "Val. Accuracy": valid_perf,
                    "Test Loss": test_loss, "Test Accuracy": test_perf, "offline updates": off, "online udpates": on})
 
+        # If triggered, will log stats on the values of the average gc and ct
         if config['stats']:
             gc_v_gt = optimizer.getAnalysis()
             wandb.log({'gt': gc_v_gt['gt'] / gc_v_gt['count'], 'gc': gc_v_gt['gc'] / gc_v_gt['count']})
 
         optimizer.resetOfflineStats()
-        # torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH,config['model']+'_'+str(epoch)+'.pt'))
+
         if valid_perf > best_validation_perf:
             best_validation_perf = valid_perf
             torch.save(model.state_dict(), os.path.join(MODEL_SAVE_PATH, 'best_model.pt'))
@@ -219,7 +218,6 @@ def HyperEvaluate(config):
         if test_perf > best_test_perf:
             best_test_perf = test_perf
 
-        # scheduler.step()
     return best_validation_perf, best_test_loss, best_test_perf
 
 

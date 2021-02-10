@@ -1,14 +1,10 @@
-from cifar.Model.Convnets import LogisticRegression
-
 import os
 import numpy as np
 import random
-
+import sys
 import wandb
 import torch
 import torch.nn as nn
-
-from optimizers.optim import SGD_C, SGD, Adam_C, Adam, RMSprop, RMSprop_C
 
 from joblib import Memory
 from sklearn.datasets import load_svmlight_file
@@ -16,9 +12,23 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from itertools import product
 
+sys.path.append('..')
+from optimizers.optim import SGD_C, SGD, Adam_C, Adam, RMSprop, RMSprop_C
+
 mem = Memory("./mycache")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+class LogisticRegression(torch.nn.Module):
+    def __init__(self, input_dim, output_dim, data='image'):
+        super(LogisticRegression, self).__init__()
+        self.linear = torch.nn.Linear(input_dim, output_dim)
+        self.data = data
+
+    def forward(self, x):
+        outputs = self.linear(x)
+        return outputs, None
 
 
 # @mem.cache
@@ -39,6 +49,12 @@ def data_iter(batch_size, features, labels):
 
 
 def HyperEvaluate(config):
+    """
+    Completes training, validation, and testing for one set of hyperparameters
+    :param config: dictionary of hyperparameters to train on
+    :return: Best validation performance, best test performance/loss
+    """
+
     torch.manual_seed(config['seed'])
 
     BATCH_SIZE = 25
@@ -49,13 +65,13 @@ def HyperEvaluate(config):
     wandb.config.update(config)
 
     if config['dataset'] == 'covtype':
-        path = os.path.join(os.pardir, 'Dataset', 'covtype.bz2')
+        path = os.path.join('Dataset', 'covtype.bz2')
         X, y = get_data(path)
         X = X.toarray()
         X = X[np.random.randint(X.shape[0], size=5000), :]
         y = y[np.random.randint(y.shape[0], size=5000)]
     elif config['dataset'] == 'rcv1':
-        path = os.path.join(os.pardir, 'Dataset', 'rcv1_train.binary.bz2')
+        path = os.path.join('Dataset', 'rcv1_train.binary.bz2')
         X, y = get_data(path)
         X = X.toarray()
         X = X[np.random.randint(X.shape[0], size=5000), :]

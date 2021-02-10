@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "C:/Users/Maritchou/MILA/CriticalGradientOptimization/convergence/convergence.py", line 161, in <module>
-    HyperEvaluate(config)
-  File "C:/Users/Maritchou/MILA/CriticalGradientOptimization/convergence/convergence.py", line 59, in HyperEvaluate
-    X = X.toarray()
-UnboundLocalError: local variable 'X' referenced before assignment

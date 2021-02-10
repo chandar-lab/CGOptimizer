@@ -4,6 +4,10 @@ from torch.optim import Optimizer
 from .priorityDict import priority_dict
 from copy import deepcopy
 
+"""
+Collection of Experimental optimizers developed during our research. Included for completeness.
+"""
+
 
 def aggr(d_p, crit_buf, func, kappa=1.0):
     if "sum" in func:
