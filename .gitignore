@@ -17,3 +17,9 @@ synced.txt
 *.sh
 *mycache/*
 .idea/*
+data/
+db/
+Utils_/
+*.gif
+*logs*
+*.ckpt*
