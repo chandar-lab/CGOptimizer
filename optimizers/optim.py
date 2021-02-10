@@ -12,6 +12,7 @@ based on those as well.
 https://github.com/pytorch/pytorch/tree/master/torch/optim
 """
 
+
 def aggregate(d_p, crit_buf, func, kappa=1.0):
     """
     Reusable aggregation function to join current iteration gradient and critical gradients
@@ -149,7 +150,6 @@ class SGD_C(Optimizer):
     The critical-gradient-specific keyword parameters are tuned for good
     off-the-shelf performance, though additional tuning may be required for best results
     """
-
 
     def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
                  weight_decay=0, momentum=0.,
@@ -638,6 +638,7 @@ class RMSprop_C(Optimizer):
     The critical-gradient-specific keyword parameters are tuned for good
     off-the-shelf performance, though additional tuning may be required for best results
     """
+
     def __init__(self, params, lr=1e-2, alpha=0.99, eps=1e-8, weight_decay=0,
                  momentum=0, centered=False, decay=0.7, kappa=1.0,
                  topC=10, aggr='mean'):
@@ -656,7 +657,7 @@ class RMSprop_C(Optimizer):
 
         defaults = dict(lr=lr, momentum=momentum, alpha=alpha, eps=eps,
                         centered=centered, weight_decay=weight_decay,
-                        aggr=aggr,  kappa=kappa, topC=topC, decay=decay)
+                        aggr=aggr, kappa=kappa, topC=topC, decay=decay)
         super(RMSprop_C, self).__init__(params, defaults)
         self.resetOfflineStats()
 
