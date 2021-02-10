@@ -19,7 +19,7 @@ python <director>/train.py --data_path <data-directory> --results_path <wandb-re
 
 The `--data_path` and `--results_path` arguments are optional, and will use default locations if not specified. Additional arguments can be passed to affect the model/training. These are dependent on the dataset/model.
 
-Currently you can choose the following models: 
+Currently you can choose the following models:
 
 ```
 FC-NeuralNet, LogisticRegression, ConvNet for MNIST dataset.
@@ -31,4 +31,14 @@ RESNET, ConvNet for CIFAR
 LSTMEncoder, Infersent, and ConvNetEncoder for SNLI
 
 RoBERTa-Base and Bi-LSTM for MultiWoZ
+```
+
+## Usage
+
+```
+from optimizers.optim import SGD_C, Adam_C
+
+# model = any differentiable model built with torch.nn
+
+optimizer = SGD_C(model.parameters(), lr = 1E-2, topC = 5, decay = 0.7)
 ```
