@@ -5,6 +5,11 @@ import torch.nn.functional as F
 
 
 class ConvNetEncoder(nn.Module):
+    """
+    Convolutional Encoder for MNIST or similar data. To be used with ClassDecoder in
+    conjunction with the EncoderDecoder class
+    """
+
     def __init__(self):
         super(ConvNetEncoder, self).__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
@@ -20,6 +25,10 @@ class ConvNetEncoder(nn.Module):
 
 
 class ClassDecoder(nn.Module):
+    """
+     Decoder for MNIST or similar data. To be used with ConvNetEncoder in
+     conjunction with the EncoderDecoder class
+     """
     def __init__(self):
         super(ClassDecoder, self).__init__()
         self.fc1 = nn.Linear(320, 50)
@@ -34,6 +43,9 @@ class ClassDecoder(nn.Module):
 
 
 class FCLayer(torch.nn.Module):
+    """
+    Fully-connected MLP with one hidden layer.
+    """
     def __init__(self, input_dim=784, hidden_dim=32, output_dim=10, data='image'):
         super(FCLayer, self).__init__()
         self.fc1 = torch.nn.Linear(input_dim, hidden_dim)
@@ -49,6 +61,9 @@ class FCLayer(torch.nn.Module):
 
 
 class LogisticRegression(torch.nn.Module):
+    """
+    Simple logistic regression model implemented using a one-layer network
+    """
     def __init__(self, input_dim, output_dim, data='image'):
         super(LogisticRegression, self).__init__()
         self.linear = torch.nn.Linear(input_dim, output_dim)

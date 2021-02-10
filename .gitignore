@@ -11,8 +11,9 @@ Dataset/*
 *.nfs*
 *checkpoint*
 */Graphs
-*wandb/*
+**/wandb
 .ipynb_checkpoints/*
 synced.txt
 *.sh
 *mycache/*
+.idea/*

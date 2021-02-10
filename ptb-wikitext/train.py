@@ -17,7 +17,7 @@ from optimizers.optim import SGD_C, SGD, Adam_C, Adam, RMSprop, RMSprop_C
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM/GRU/Transformer Language Model')
 
-parser.add_argument('--data_path', type=str, default='../Dataset')
+parser.add_argument('--data_path', type=str, default='./Dataset')
 parser.add_argument('--results_path', type=str, default='.')
 
 parser.add_argument('--model', type=str, default='LSTM',
@@ -28,8 +28,6 @@ parser.add_argument('--nhid', type=int, default=128,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
-parser.add_argument('--lr', type=float, default=0.01,
-                    help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=25,
@@ -48,8 +46,6 @@ parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str, default='model.pt',
                     help='path to save the final model')
-parser.add_argument('--onnx-export', type=str, default='',
-                    help='path to export the final model in onnx format')
 
 parser.add_argument('--nhead', type=int, default=2,
                     help='the number of heads in the encoder/decoder of the transformer model')
@@ -191,20 +187,22 @@ def train(model, train_data, optimizer, ntokens, bptt, CLIP, batch_size, criteri
 
 # Loop over epochs.
 def HyperEvaluate(config):
+    """
+    Completes training, validation, and testing for one set of hyperparameters
+    :param config: dictionary of hyperparameters to train on
+    :return: Best validation performance, best test performance/loss
+    """
     import word_language_model.data as data
     import word_language_model.model as model
 
     # Set the random seed manually for reproducibility.
     torch.manual_seed(config['seed'])
-    #    if torch.cuda.is_available():
-    #       if not args.cuda:
-    #          print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
     ###############################################################################
     # Load data
     ###############################################################################
 
-    corpus = data.Corpus(os.path.join('../Dataset', config['dataset']))
+    corpus = data.Corpus(os.path.join('./Dataset', config['dataset']))
 
     # Starting from sequential data, batchify arranges the dataset into columns.
     # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -292,6 +290,8 @@ def HyperEvaluate(config):
         wandb.log({"Train Loss": train_loss, "Validation Loss": val_loss, "Validation Perplexity": val_ppl,
                    "Test Loss": test_loss, "Test Perplexity": test_ppl, "offline updates": off, "online udpates": on})
 
+
+        # If triggered, will log stats on the values of the average gc and ct
         if config['stats']:
             gc_v_gt = optimizer.getAnalysis()
             wandb.log({'gt': gc_v_gt['gt'] / gc_v_gt['count'], 'gc': gc_v_gt['gc'] / gc_v_gt['count']})

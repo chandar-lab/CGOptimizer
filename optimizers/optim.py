@@ -4,7 +4,25 @@ from torch.optim import Optimizer
 from .priorityDict import priority_dict
 from copy import deepcopy
 
+"""
+Implementations for _C enhanced optimizers as well as their vanilla counterparts.
+Vanilla algorthims are sourced from PyTorch source, and _C iterations are largely
+based on those as well.
+
+https://github.com/pytorch/pytorch/tree/master/torch/optim
+"""
+
 def aggregate(d_p, crit_buf, func, kappa=1.0):
+    """
+    Reusable aggregation function to join current iteration gradient and critical gradients
+
+    :param d_p: Current-iteration gradient
+    :param crit_buf: Buffer of Critical Gradients
+    :param func: String name of aggregation. Should be "sum", "mid", or "mean"
+    :param kappa: Multiplicative factor for CG buffer
+    :return: Aggregated total gradient
+    """
+
     if "sum" in func:
         crit_buf_ = crit_buf.gradmean()
         crit_buf_.mul_(kappa)
@@ -121,18 +139,30 @@ class SGD(Optimizer):
 
 
 class SGD_C(Optimizer):
-    r"""Implements SGD (optionally with momentum) while keeping a record of critical
-    gradients (top C gradients by norm). Adds the sum or mean of these gradients
-    to the final update step such that for param p
-
-    p(t+1) = p(t) + lr * (g_t + f(g_crit))
-
-    Where f is either a sum or mean of the gradients in g_crit
     """
+    Implementation of SGD (and optionally SGD with momentum) with critical gradients.
+    Replaces current-iteration gradient in conventional PyTorch implementation with
+    an aggregation of current gradient and critical gradients.
+
+    Conventional SGD or SGD with momentum can be recovered by setting kappa=0.
+
+    The critical-gradient-specific keyword parameters are tuned for good
+    off-the-shelf performance, though additional tuning may be required for best results
+    """
+
 
     def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
                  weight_decay=0, momentum=0.,
-                 decay=0.99, topC=10, aggr='sum'):
+                 decay=0.7, topC=10, aggr='sum'):
+
+        if momentum < 0.0:
+            raise ValueError("Invalid momentum value: {}".format(momentum))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+        if not 0.0 <= decay and not 1.0 > decay:
+            raise ValueError("Invalid alpha value: {}".format(decay))
+        if not 0.0 <= topC:
+            raise ValueError("Invalid alpha value: {}".format(topC))
 
         defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
                         weight_decay=weight_decay, momentum=momentum,
@@ -345,9 +375,19 @@ class Adam(Optimizer):
 
 
 class Adam_C(Optimizer):
+    """
+    Implementation of Adam with critical gradients.
+    Replaces current-iteration gradient in conventional PyTorch implementation with
+    an aggregation of current gradient and critical gradients.
+
+    Conventional Adam can be recovered by setting kappa=0.
+
+    The critical-gradient-specific keyword parameters are tuned for good
+    off-the-shelf performance, though additional tuning may be required for best results
+    """
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 decay=0.95, kappa=1.0, topC=10,
+                 decay=0.7, kappa=1.0, topC=10,
                  weight_decay=0, amsgrad=False, aggr='mean'):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -357,6 +397,10 @@ class Adam_C(Optimizer):
             raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
+        if not 0.0 <= decay and not 1.0 > decay:
+            raise ValueError("Invalid alpha value: {}".format(decay))
+        if not 0.0 <= topC:
+            raise ValueError("Invalid alpha value: {}".format(topC))
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, aggr=aggr, amsgrad=amsgrad,
                         kappa=kappa, topC=topC, decay=decay)
@@ -584,9 +628,18 @@ class RMSprop(Optimizer):
 
 
 class RMSprop_C(Optimizer):
+    """
+    Implementation of RMSprop with critical gradients.
+    Replaces current-iteration gradient in conventional PyTorch implementation with
+    an aggregation of current gradient and critical gradients.
 
+    Conventional RMSprop can be recovered by setting kappa=0.
+
+    The critical-gradient-specific keyword parameters are tuned for good
+    off-the-shelf performance, though additional tuning may be required for best results
+    """
     def __init__(self, params, lr=1e-2, alpha=0.99, eps=1e-8, weight_decay=0,
-                 momentum=0, centered=False, decay=0.95, kappa=1.0,
+                 momentum=0, centered=False, decay=0.7, kappa=1.0,
                  topC=10, aggr='mean'):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -596,8 +649,10 @@ class RMSprop_C(Optimizer):
             raise ValueError("Invalid momentum value: {}".format(momentum))
         if not 0.0 <= weight_decay:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
-        if not 0.0 <= alpha:
-            raise ValueError("Invalid alpha value: {}".format(alpha))
+        if not 0.0 <= decay and not 1.0 > decay:
+            raise ValueError("Invalid alpha value: {}".format(decay))
+        if not 0.0 <= topC:
+            raise ValueError("Invalid alpha value: {}".format(topC))
 
         defaults = dict(lr=lr, momentum=momentum, alpha=alpha, eps=eps,
                         centered=centered, weight_decay=weight_decay,
