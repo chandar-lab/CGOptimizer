@@ -1,4 +1,10 @@
-# Offline-Gradient-Optimization
+# Memory Augmented Optimizers
+
+Popular approaches for minimizing loss in data-driven learning often involve an abstraction or an explicit retention of the history of gradients for efficient parameter updates. 
+The aggregated history of gradients nudges the parameter updates in the right direction even when the gradients at any given step are not informative. 
+Although the history of gradients summarized in meta-parameters or explicitly stored in memory has been shown effective in theory and practice, the question of whether *all* or only a subset of the gradients in the history are sufficient in deciding the parameter updates remains unanswered. 
+We propose a class of memory-augmented gradient descent optimizers that retain only the *critical* gradients, as defined by the L2-norm of the gradients, as opposed to the entire history. 
+This repository contains these memory-agumented optimizers as well as numerous models to test them on.
 
 ## Data download
 
