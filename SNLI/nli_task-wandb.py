@@ -35,7 +35,7 @@ import pandas as pd
 from collections import Counter
 import pdb
 
-os.environ["WANDB_API_KEY"] = '90b23c86b7e5108683b793009567e676b1f93888'
+os.environ["WANDB_API_KEY"] = ''
 os.environ["WANDB_MODE"] = "dryrun"
 
 # commandline arguments
