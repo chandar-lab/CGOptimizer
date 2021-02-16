@@ -48,3 +48,7 @@ from optimizers.optim import SGD_C, Adam_C
 
 optimizer = SGD_C(model.parameters(), lr = 1E-2, topC = 5, decay = 0.7)
 ```
+
+## Additional Python Information
+
+All experiments were run using Python 3.6. The optimizers are built using `torch` 1.7.1 and extend the `torch.optim.Optimizer` class. Logging of results was handled using the WandB API with `wandb` 0.10.4 installed locally.
