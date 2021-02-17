@@ -1,7 +1,8 @@
-import sys
 import argparse
 import math
 import os
+import sys
+
 import torch
 import torch.nn as nn
 import torch.onnx
@@ -17,8 +18,8 @@ from optimizers.optim import SGD_C, SGD, Adam_C, Adam, RMSprop, RMSprop_C
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM/GRU/Transformer Language Model')
 
-parser.add_argument('--data_path', type=str, default='./Dataset')
-parser.add_argument('--results_path', type=str, default='.')
+parser.add_argument('--data_path', type=str, default='../Dataset')
+parser.add_argument('--results_path', type=str, default='..')
 
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, Transformer)')
@@ -202,7 +203,7 @@ def HyperEvaluate(config):
     # Load data
     ###############################################################################
 
-    corpus = data.Corpus(os.path.join('./Dataset', config['dataset']))
+    corpus = data.Corpus(os.path.join(data_path, config['dataset']))
 
     # Starting from sequential data, batchify arranges the dataset into columns.
     # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -216,7 +217,7 @@ def HyperEvaluate(config):
     # dependence of e. g. 'g' on 'f' can not be learned, but allows more efficient
     # batch processing.
 
-    N_EPOCHS = 50  # number of epochs
+    N_EPOCHS = 25  # number of epochs
     CLIP = 0.25  # gradient clip value    # directory name to save the models.
     if '_C' in config['optim']:
         run_id = "seed_" + str(config['seed']) + '_LR_' + str(config['lr']) + '_topC_' + str(
@@ -275,8 +276,8 @@ def HyperEvaluate(config):
         optimizer = RMSprop_C(model.parameters(), lr=config['lr'], decay=config['decay'], kappa=config['kappa'],
                               topC=config['topC'], aggr=config['aggr'])
 
-    best_val_ppl = float('-inf')
-    best_test_ppl = float('-inf')
+    best_val_ppl = float('inf')
+    best_test_ppl = float('inf')
     best_test_loss = float('inf')
 
     for epoch in range(N_EPOCHS):
@@ -289,7 +290,6 @@ def HyperEvaluate(config):
         test_loss, test_ppl = test(model, test_data, ntokens, args.bptt, criterion)
         wandb.log({"Train Loss": train_loss, "Validation Loss": val_loss, "Validation Perplexity": val_ppl,
                    "Test Loss": test_loss, "Test Perplexity": test_ppl, "offline updates": off, "online udpates": on})
-
 
         # If triggered, will log stats on the values of the average gc and ct
         if config['stats']:
@@ -315,7 +315,7 @@ def HyperEvaluate(config):
 PARAM_GRID = list(product(
     ['LSTM'],  # model
     [100, 101, 102, 103, 104],  # seeds
-    ['ptb-wikitext', 'wikitext'],  # dataset
+    ['ptb', 'wikitext'],  # dataset
     ['RMSprop_C', 'Adam_C'],  # optimizer
     [0.1, 0.01, 0.001, 0.0001, 0.00001],  # lr
     [0.7, 0.9],  # decay

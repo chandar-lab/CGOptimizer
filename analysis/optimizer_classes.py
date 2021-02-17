@@ -1,6 +1,6 @@
 import torch
 
-from Analysis.losses import *
+from analysis.losses import *
 
 from optimizers.optim import SGD, Adam, SGD_C, Adam_C, RMSprop, RMSprop_C
 from optimizers.optimExperimental import SAGA
