@@ -23,7 +23,7 @@ from datetime import datetime
 from evaluate import MultiWozEvaluator
 
 import os
-os.environ["WANDB_API_KEY"] = '829432a2360cc623158d30f47c37fe11d3e12d57'
+os.environ["WANDB_API_KEY"] = ''
 os.environ["WANDB_MODE"] = "dryrun"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
