@@ -24,3 +24,4 @@ Utils_/
 *logs*
 *.ckpt*
 Figures/*
+/utils/
