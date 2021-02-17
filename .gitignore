@@ -25,3 +25,4 @@ Utils_/
 *.ckpt*
 Figures/*
 utils/
+/utils/
