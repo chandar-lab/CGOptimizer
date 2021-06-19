@@ -10,6 +10,9 @@ Clone this repository anywhere on your system. Once cloned, `cd` to the director
 pip install .
 ```
 
+## Colab
+
+The shared [colab notebook](https://colab.research.google.com/drive/1m8Edr7aAHlBIlAtV2PZRQgnKIcf0VQh5?usp=sharing) shows examples on using the Critical gradient optimizers on toy classification tasks constructed with scikit-learn package. 
 
 ## Importing and Running
 
