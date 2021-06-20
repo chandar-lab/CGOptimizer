@@ -1,6 +1,6 @@
 # Critical Gradient Optimizers
 
-Critical Gradient Optimizers from the "Memory Augmented Optimizers" project and paper, reformatted as package and stripped down to just the necessary components to integrate the optimizers into your code.
+Critical Gradient Optimizers from the "Memory Augmented Optimizers for Deep Learning" project and paper, reformatted as package and stripped down to just the necessary components to integrate the optimizers into your code.
 
 ## Installation
 
