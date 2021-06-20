@@ -49,3 +49,13 @@ The `_C` variants perform best using either the same best learning rate as its v
 Hyperparameter  `topC` determines how many critical gradients are stored and thus how much memory is used. Higher `topC` usually result in longer training times. Good `topC` values usually fall between 5 and 20. We recommended using values 5, 10, and 20.
 
 Hyperparameter `decay` indicates the level of decay in the buffer. This modifies how frequently the buffer is refreshed. The `decay` parameter must fall between 0 and 1. We recommended using values 0.7 and 0.9.
+
+## Citation
+
+```
+@misc{mcrae2021memory,
+  author    = {McRae, Paul-Aymeric and Parthasarathi, Prasanna and Assran, Mahmoud and Chandar, Sarath},
+  title     = {Memory Augmented Optimizers for Deep Learning},
+  year      = {2021},
+  booktitle = {arXiv}
+}
