@@ -1,7 +1,7 @@
 import math
 import torch
 from torch.optim import Optimizer
-from .priorityDict import priority_dict
+from .priorityDict import priorityDict
 from copy import deepcopy
 
 """
@@ -153,20 +153,19 @@ class SGD_C(Optimizer):
 
     def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
                  weight_decay=0, momentum=0.,
-                 decay=0.7, topC=10, aggr='sum'):
+                 decay=0.7, topC=10, aggr='sum', synced=True):
 
         if momentum < 0.0:
             raise ValueError("Invalid momentum value: {}".format(momentum))
         if weight_decay < 0.0:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         if not 0.0 <= decay and not 1.0 > decay:
-            raise ValueError("Invalid alpha value: {}".format(decay))
+            raise ValueError("Invalid decay value: {}".format(decay))
         if not 0.0 <= topC:
-            raise ValueError("Invalid alpha value: {}".format(topC))
+            raise ValueError("Invalid topC value: {}".format(topC))
 
-        defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
-                        weight_decay=weight_decay, momentum=momentum,
-                        aggr=aggr, decay=decay, gradHist={}, topC=topC)
+        defaults = dict(lr=lr, kappa=kappa, dampening=dampening, weight_decay=weight_decay, momentum=momentum,
+                        aggr=aggr, decay=decay, gradHist={}, topC=topC, synced=synced)
 
         super(SGD_C, self).__init__(params, defaults)
         self.resetOfflineStats()
@@ -179,7 +178,7 @@ class SGD_C(Optimizer):
         return self.g_analysis
 
     def resetAnalysis(self):
-        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0}
+        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0, 'gc_aggr': 0}
 
     def resetOfflineStats(self):
         self.offline_grad = {'yes': 0, 'no': 0}
@@ -196,7 +195,7 @@ class SGD_C(Optimizer):
         loss = None
         if closure is not None:
             loss = closure()
-        count = 0.0
+
         for group in self.param_groups:
             weight_decay = group['weight_decay']
             kappa = group['kappa']
@@ -205,27 +204,36 @@ class SGD_C(Optimizer):
             momentum = group['momentum']
             topc = group['topC']
             aggr = group['aggr']
-            count += 0.
+            synced = group['synced']
+
+            d_p_norm = 0.0
+
+            if synced:
+                for p in group['params']:
+                    if p.grad is None:
+                        continue
+                    d_p = p.grad.data
+                    d_p_norm += torch.sqrt(torch.sum(torch.square(d_p)))
 
             for p in group['params']:
                 if p.grad is None:
                     continue
                 d_p = p.grad.data
-                d_p_norm = d_p.norm()
+                if not synced:
+                    d_p_norm = d_p.norm()
                 if weight_decay != 0:
                     d_p = d_p.add(weight_decay, p.data)
                 if kappa != 0:
                     param_state = self.state[p]
                     if 'critical gradients' not in param_state:
-                        crit_buf = param_state['critical gradients'] = priority_dict()
-                        crit_buf.sethyper(decay_rate=decay, K=topc)
+                        crit_buf = param_state['critical gradients'] = priorityDict()
+                        crit_buf.setHyper(decay_rate=decay, K=topc)
                         crit_buf[d_p_norm] = deepcopy(d_p)
                     else:
                         crit_buf = param_state['critical gradients']
-                        #
                         aggr_grad = aggregate(d_p, crit_buf, aggr, kappa)
                         if crit_buf.isFull():
-                            if d_p_norm > crit_buf.pokesmallest():
+                            if d_p_norm > crit_buf.pokeSmallest():
                                 self.offline_grad['yes'] += 1
                                 crit_buf[d_p_norm] = deepcopy(d_p)
                             else:
@@ -247,9 +255,6 @@ class SGD_C(Optimizer):
                         else:
                             buf = param_state['momentum_buffer']
                             buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
-                        # if nesterov:
-                        #     d_p = d_p.add(momentum, buf)
-                        # else:
                         d_p = buf
 
                 p.data.add_(d_p, alpha=-group['lr'])
@@ -388,7 +393,7 @@ class Adam_C(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  decay=0.7, kappa=1.0, topC=10,
-                 weight_decay=0, amsgrad=False, aggr='mean'):
+                 weight_decay=0, amsgrad=False, aggr='mean', synced=True):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -398,12 +403,12 @@ class Adam_C(Optimizer):
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
         if not 0.0 <= decay and not 1.0 > decay:
-            raise ValueError("Invalid alpha value: {}".format(decay))
+            raise ValueError("Invalid decay value: {}".format(decay))
         if not 0.0 <= topC:
-            raise ValueError("Invalid alpha value: {}".format(topC))
+            raise ValueError("Invalid topC value: {}".format(topC))
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, aggr=aggr, amsgrad=amsgrad,
-                        kappa=kappa, topC=topC, decay=decay)
+                        kappa=kappa, topC=topC, decay=decay, synced=synced)
 
         super(Adam_C, self).__init__(params, defaults)
         self.resetOfflineStats()
@@ -424,7 +429,7 @@ class Adam_C(Optimizer):
         return self.g_analysis
 
     def resetAnalysis(self):
-        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0}
+        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0, 'gc_aggr': 0}
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -438,11 +443,22 @@ class Adam_C(Optimizer):
             loss = closure()
 
         for group in self.param_groups:
+
+            grad_norm = 0.0
+
+            if group['synced']:
+                for p in group['params']:
+                    if p.grad is None:
+                        continue
+                    d_p = p.grad.data
+                    grad_norm += torch.sqrt(torch.sum(torch.square(d_p)))
+
             for p in group['params']:
                 if p.grad is None:
                     continue
                 grad = p.grad.data
-                grad_norm = grad.norm()
+                if not group['synced']:
+                    grad_norm = grad.norm()
                 if grad.is_sparse:
                     raise RuntimeError('Adam does not support sparse gradients, please consider SparseAdam instead')
                 amsgrad = group['amsgrad']
@@ -461,8 +477,8 @@ class Adam_C(Optimizer):
                     # Exponential moving average of squared gradient values
                     state['exp_avg_sq'] = torch.zeros_like(p.data)  # memory_format=torch.preserve_format)
                     if kappa > 0.:
-                        state['critical gradients'] = priority_dict()
-                        state['critical gradients'].sethyper(decay_rate=decay, K=topc)
+                        state['critical gradients'] = priorityDict()
+                        state['critical gradients'].setHyper(decay_rate=decay, K=topc)
                         state['critical gradients'][grad_norm] = deepcopy(grad)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
@@ -471,7 +487,7 @@ class Adam_C(Optimizer):
                     if kappa > 0.:
                         aggr_grad = aggregate(grad, state['critical gradients'], aggr)
                         if state['critical gradients'].isFull():
-                            if grad_norm > state['critical gradients'].pokesmallest():
+                            if grad_norm > state['critical gradients'].pokeSmallest():
                                 self.offline_grad['yes'] += 1
                                 state['critical gradients'][grad_norm] = deepcopy(grad)
                             else:
@@ -641,7 +657,7 @@ class RMSprop_C(Optimizer):
 
     def __init__(self, params, lr=1e-2, alpha=0.99, eps=1e-8, weight_decay=0,
                  momentum=0, centered=False, decay=0.7, kappa=1.0,
-                 topC=10, aggr='mean'):
+                 topC=10, aggr='mean', synced=True):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -651,13 +667,13 @@ class RMSprop_C(Optimizer):
         if not 0.0 <= weight_decay:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         if not 0.0 <= decay and not 1.0 > decay:
-            raise ValueError("Invalid alpha value: {}".format(decay))
+            raise ValueError("Invalid decay value: {}".format(decay))
         if not 0.0 <= topC:
-            raise ValueError("Invalid alpha value: {}".format(topC))
+            raise ValueError("Invalid topC value: {}".format(topC))
 
         defaults = dict(lr=lr, momentum=momentum, alpha=alpha, eps=eps,
                         centered=centered, weight_decay=weight_decay,
-                        aggr=aggr, kappa=kappa, topC=topC, decay=decay)
+                        aggr=aggr, kappa=kappa, topC=topC, decay=decay, synced=synced)
         super(RMSprop_C, self).__init__(params, defaults)
         self.resetOfflineStats()
 
@@ -680,11 +696,22 @@ class RMSprop_C(Optimizer):
                 loss = closure()
 
         for group in self.param_groups:
+
+            grad_norm = 0.0
+
+            if group['synced']:
+                for p in group['params']:
+                    if p.grad is None:
+                        continue
+                    d_p = p.grad.data
+                    grad_norm += torch.sqrt(torch.sum(torch.square(d_p)))
+
             for p in group['params']:
                 if p.grad is None:
                     continue
-                grad = p.grad
-                grad_norm = grad.norm()
+                grad = p.grad.data
+                if not group['synced']:
+                    grad_norm = grad.norm()
                 if grad.is_sparse:
                     raise RuntimeError('RMSprop does not support sparse gradients')
                 kappa = group['kappa']
@@ -702,14 +729,14 @@ class RMSprop_C(Optimizer):
                     if group['centered']:
                         state['grad_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     if kappa > 0.:
-                        state['critical gradients'] = priority_dict()
-                        state['critical gradients'].sethyper(decay_rate=decay, K=topc)
+                        state['critical gradients'] = priorityDict()
+                        state['critical gradients'].setHyper(decay_rate=decay, K=topc)
                         state['critical gradients'][grad_norm] = deepcopy(grad)
                 else:
                     aggr_grad = aggregate(grad, state['critical gradients'], aggr)
                     if kappa > 0.:
                         if state['critical gradients'].isFull():
-                            if grad_norm > state['critical gradients'].pokesmallest():
+                            if grad_norm > state['critical gradients'].pokeSmallest():
                                 self.offline_grad['yes'] += 1
                                 state['critical gradients'][grad_norm] = deepcopy(grad)
                             else:
