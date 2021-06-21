@@ -2,6 +2,13 @@
 
 Critical Gradient Optimizers from the "Memory Augmented Optimizers for Deep Learning" project and paper, reformatted as package and stripped down to just the necessary components to integrate the optimizers into your code.
 
+This code is compatible with the following versions:
+
+```
+python >= 3.6
+pytorch >= 1.7.1
+```
+
 ## Installation
 
 Clone this repository anywhere on your system. Once cloned, `cd` to the directory and install with:

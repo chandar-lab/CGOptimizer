@@ -342,12 +342,12 @@ class Adam(Optimizer):
                 if len(state) == 0:
                     state['step'] = 0
                     #  Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p)  # memory_format=torch.preserve_format)
+                    state['exp_avg'] = torch.zeros_like(p)
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p)  # memory_format=torch.preserve_format)
+                    state['exp_avg_sq'] = torch.zeros_like(p)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(p)  # memory_format=torch.preserve_format)
+                        state['max_exp_avg_sq'] = torch.zeros_like(p)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
                 if amsgrad:
@@ -473,16 +473,16 @@ class Adam_C(Optimizer):
                 if len(state) == 0:
                     state['step'] = 0
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p.data)  # memory_format=torch.preserve_format)
+                    state['exp_avg'] = torch.zeros_like(p.data)
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p.data)  # memory_format=torch.preserve_format)
+                    state['exp_avg_sq'] = torch.zeros_like(p.data)
                     if kappa > 0.:
                         state['critical gradients'] = priorityDict()
                         state['critical gradients'].setHyper(decay_rate=decay, K=topc)
                         state['critical gradients'][grad_norm] = deepcopy(grad)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(p.data)  # memory_format=torch.preserve_format)
+                        state['max_exp_avg_sq'] = torch.zeros_like(p.data)
                 else:
                     if kappa > 0.:
                         aggr_grad = aggregate(grad, state['critical gradients'], aggr)
