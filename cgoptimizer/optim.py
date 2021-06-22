@@ -1,7 +1,7 @@
 import math
 import torch
 from torch.optim import Optimizer
-from .priorityDict import priorityDict
+from .priorityDict import PriorityDict
 from copy import deepcopy
 
 """
@@ -226,7 +226,7 @@ class SGD_C(Optimizer):
                 if kappa != 0:
                     param_state = self.state[p]
                     if 'critical gradients' not in param_state:
-                        crit_buf = param_state['critical gradients'] = priorityDict()
+                        crit_buf = param_state['critical gradients'] = PriorityDict()
                         crit_buf.setHyper(decay_rate=decay, K=topc)
                         crit_buf[d_p_norm] = deepcopy(d_p)
                     else:
@@ -477,7 +477,7 @@ class Adam_C(Optimizer):
                     # Exponential moving average of squared gradient values
                     state['exp_avg_sq'] = torch.zeros_like(p.data)
                     if kappa > 0.:
-                        state['critical gradients'] = priorityDict()
+                        state['critical gradients'] = PriorityDict()
                         state['critical gradients'].setHyper(decay_rate=decay, K=topc)
                         state['critical gradients'][grad_norm] = deepcopy(grad)
                     if amsgrad:
@@ -729,7 +729,7 @@ class RMSprop_C(Optimizer):
                     if group['centered']:
                         state['grad_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     if kappa > 0.:
-                        state['critical gradients'] = priorityDict()
+                        state['critical gradients'] = PriorityDict()
                         state['critical gradients'].setHyper(decay_rate=decay, K=topc)
                         state['critical gradients'][grad_norm] = deepcopy(grad)
                 else:

@@ -12,7 +12,7 @@ class HeapItem:
         return self.p < other.p
 
 
-class priorityDict(dict):
+class PriorityDict(dict):
     """Dictionary that can be used as a priority queue.
 
     Keys of the dictionary are items to be put into the queue, and values
@@ -28,7 +28,7 @@ class priorityDict(dict):
     """
 
     def __init__(self, *args, **kwargs):
-        super(priorityDict, self).__init__(*args, **kwargs)
+        super(PriorityDict, self).__init__(*args, **kwargs)
         self._heap = [HeapItem(k, v) for k, v in self.items()]
         self._rebuild_heap()
 
@@ -125,7 +125,7 @@ class priorityDict(dict):
         # http://mail.python.org/pipermail/python-ideas/2007-May/000744.html
         # We just rebuild the heap from scratch after passing to super.
 
-        super(priorityDict, self).update(*args, **kwargs)
+        super(PriorityDict, self).update(*args, **kwargs)
         self._rebuild_heap()
 
     def sorted_iter(self):
