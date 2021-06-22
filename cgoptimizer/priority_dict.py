@@ -47,7 +47,8 @@ class PriorityDict(dict):
             del self[k]
 
     def _rebuild_heap(self):
-        self._heap = [it for it in self._heap if it.p >= 0.0] # >= used as fix for errors in some data
+        # >= used as fix for errors in some data
+        self._heap = [it for it in self._heap if it.p >= 0.0]
         if len(self._heap) > 0:
             heapify(self._heap)
             if not self.is_empty() and self.is_full():
