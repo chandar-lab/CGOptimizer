@@ -227,12 +227,12 @@ class SGD_C(Optimizer):
                     param_state = self.state[p]
                     if 'critical gradients' not in param_state:
                         crit_buf = param_state['critical gradients'] = PriorityDict()
-                        crit_buf.setHyper(decay_rate=decay, K=topc)
+                        crit_buf.set_hyper(decay_rate=decay, K=topc)
                         crit_buf[d_p_norm] = deepcopy(d_p)
                     else:
                         crit_buf = param_state['critical gradients']
                         aggr_grad = aggregate(d_p, crit_buf, aggr, kappa)
-                        if crit_buf.isFull():
+                        if crit_buf.is_full():
                             if d_p_norm > crit_buf.pokeSmallest():
                                 self.offline_grad['yes'] += 1
                                 crit_buf[d_p_norm] = deepcopy(d_p)
@@ -242,7 +242,7 @@ class SGD_C(Optimizer):
                             crit_buf[d_p_norm] = deepcopy(d_p)
                         d_p = aggr_grad
 
-                    self.g_analysis['gc'] += crit_buf.averageTopC()
+                    self.g_analysis['gc'] += crit_buf.average_topC()
                     self.g_analysis['count'] += 1
                     self.g_analysis['gt'] += p.grad.data.norm()
 
@@ -478,7 +478,7 @@ class Adam_C(Optimizer):
                     state['exp_avg_sq'] = torch.zeros_like(p.data)
                     if kappa > 0.:
                         state['critical gradients'] = PriorityDict()
-                        state['critical gradients'].setHyper(decay_rate=decay, K=topc)
+                        state['critical gradients'].set_hyper(decay_rate=decay, K=topc)
                         state['critical gradients'][grad_norm] = deepcopy(grad)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
@@ -486,7 +486,7 @@ class Adam_C(Optimizer):
                 else:
                     if kappa > 0.:
                         aggr_grad = aggregate(grad, state['critical gradients'], aggr)
-                        if state['critical gradients'].isFull():
+                        if state['critical gradients'].is_full():
                             if grad_norm > state['critical gradients'].pokeSmallest():
                                 self.offline_grad['yes'] += 1
                                 state['critical gradients'][grad_norm] = deepcopy(grad)
@@ -521,7 +521,7 @@ class Adam_C(Optimizer):
 
                 step_size = group['lr'] / bias_correction1
 
-                self.g_analysis['gc'] += state['critical gradients'].averageTopC()
+                self.g_analysis['gc'] += state['critical gradients'].average_topC()
                 self.g_analysis['count'] += 1
                 self.g_analysis['gt'] += p.grad.data.norm()
 
@@ -730,12 +730,12 @@ class RMSprop_C(Optimizer):
                         state['grad_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     if kappa > 0.:
                         state['critical gradients'] = PriorityDict()
-                        state['critical gradients'].setHyper(decay_rate=decay, K=topc)
+                        state['critical gradients'].set_hyper(decay_rate=decay, K=topc)
                         state['critical gradients'][grad_norm] = deepcopy(grad)
                 else:
                     aggr_grad = aggregate(grad, state['critical gradients'], aggr)
                     if kappa > 0.:
-                        if state['critical gradients'].isFull():
+                        if state['critical gradients'].is_full():
                             if grad_norm > state['critical gradients'].pokeSmallest():
                                 self.offline_grad['yes'] += 1
                                 state['critical gradients'][grad_norm] = deepcopy(grad)

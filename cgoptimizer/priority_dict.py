@@ -35,7 +35,7 @@ class PriorityDict(dict):
     def size(self):
         return len(self._heap)
 
-    def setHyper(self, decay_rate=0.5, K=5):
+    def set_hyper(self, decay_rate=0.5, K=5):
         self.k = K
         self.decay_rate = decay_rate
 
@@ -50,10 +50,10 @@ class PriorityDict(dict):
         self._heap = [it for it in self._heap if it.p >= 0.0] # >= used as fix for errors in some data
         if len(self._heap) > 0:
             heapify(self._heap)
-            if not self.isEmpty() and self.isFull():
+            if not self.is_empty() and self.is_full():
                 self._reorder()
 
-    def isEmpty(self):
+    def is_empty(self):
         if len(self._heap) == 0:
             return True
         return False
@@ -61,18 +61,18 @@ class PriorityDict(dict):
     def decay(self):
         self._heap = [HeapItem(self.decay_rate * it.p, it.t) for it in self._heap]
 
-    def isFull(self):
+    def is_full(self):
         if len(self._heap) < self.k:
             return False
         return True
 
-    def averageTopC(self):
+    def average_topC(self):
         ave = 0.
         if len(self._heap) > 0:
             ave = sum([it.t.norm() for it in self._heap]) / float(len(self._heap))
         return ave
 
-    def pokesmallest(self):
+    def poke_smallest(self):
         """Return the lowest priority.
 
         Raises IndexError if the object is empty.
