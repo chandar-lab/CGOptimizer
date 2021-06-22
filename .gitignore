@@ -1,0 +1,37 @@
+*__pycache__*
+*.DS_Store
+*.png
+*.csv
+*.pyc
+*.lock
+*.pt
+*Results/*
+*.zip
+Dataset/*
+*.nfs*
+*checkpoint*
+*/Graphs
+**/wandb
+.ipynb_checkpoints/*
+synced.txt
+*.sh
+*mycache/*
+.idea/*
+data/
+db/
+Utils_/
+*.gif
+*logs*
+*.ckpt*
+Figures/*
+utils/
+/utils/
+
+# Compiled python modules.
+*.pyc
+
+# Setuptools distribution folder.
+/dist/
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
