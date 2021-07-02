@@ -1,6 +1,6 @@
 # Critical Gradient Optimizers
 
-Critical Gradient Optimizers from the "Memory Augmented Optimizers for Deep Learning" project and paper, reformatted as package and stripped down to just the necessary components to integrate the optimizers into your code.
+Critical Gradient Optimizers from the "Memory Augmented Optimizers for Deep Learning" project and [paper](https://arxiv.org/abs/2106.10708), reformatted as package and stripped down to just the necessary components to integrate the optimizers into your code.
 
 This code is compatible with the following versions:
 
@@ -11,11 +11,13 @@ pytorch >= 1.7.1
 
 ## Installation
 
-Clone this repository anywhere on your system. Once cloned, `cd` to the directory and install with:
+Install these optimizers using 
 
 ```
-pip install .
+pip install cgoptimizer
 ```
+
+Alternatively, clone [this repository](https://github.com/chandar-lab/CGOptimizer) anywhere on your system. Once cloned, `cd` to the directory and install with: `pip install .`
 
 ## Colab
 
@@ -23,7 +25,7 @@ The shared [colab notebook](https://colab.research.google.com/drive/1m8Edr7aAHlB
 
 ## Importing and Running
 
-You can import the optimizers as you would any PyTorch optimizer. There are no requirements to run them other than PyTorch.
+You can import the optimizers as you would any PyTorch optimizer. There are no requirements to run them other than PyTorch and its dependencies.
 
 When installed, import the optimizers to your training script as needed:
 
