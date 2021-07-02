@@ -9,7 +9,7 @@ https://github.com/pytorch/pytorch/tree/master/torch/optim
 import math
 import torch
 from torch.optim import Optimizer
-from priority_dict import PriorityDict
+from .priority_dict import PriorityDict
 from copy import deepcopy
 
 
@@ -170,17 +170,9 @@ class SGD_C(Optimizer):
                         aggr=aggr, decay=decay, gradHist={}, topC=topC, synced=synced)
 
         super(SGD_C, self).__init__(params, defaults)
-        self.resetOfflineStats()
-        self.resetAnalysis()
 
     def getOfflineStats(self):
         return self.offline_grad
-
-    def getAnalysis(self):
-        return self.g_analysis
-
-    def resetAnalysis(self):
-        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0, 'gc_aggr': 0}
 
     def resetOfflineStats(self):
         self.offline_grad = {'yes': 0, 'no': 0}
@@ -235,7 +227,7 @@ class SGD_C(Optimizer):
                         crit_buf = param_state['critical gradients']
                         aggr_grad = aggregate(d_p, crit_buf, aggr, kappa)
                         if crit_buf.is_full():
-                            if d_p_norm > crit_buf.pokeSmallest():
+                            if d_p_norm > crit_buf.poke_smallest():
                                 self.offline_grad['yes'] += 1
                                 crit_buf[d_p_norm] = deepcopy(d_p)
                             else:
@@ -243,10 +235,6 @@ class SGD_C(Optimizer):
                         else:
                             crit_buf[d_p_norm] = deepcopy(d_p)
                         d_p = aggr_grad
-
-                    self.g_analysis['gc'] += crit_buf.average_topC()
-                    self.g_analysis['count'] += 1
-                    self.g_analysis['gt'] += p.grad.data.norm()
 
                     crit_buf.decay()
 
@@ -417,8 +405,6 @@ class Adam_C(Optimizer):
                         kappa=kappa, topC=topC, decay=decay, synced=synced)
 
         super(Adam_C, self).__init__(params, defaults)
-        self.resetOfflineStats()
-        self.resetAnalysis()
 
     def getOfflineStats(self):
         return self.offline_grad
@@ -430,12 +416,6 @@ class Adam_C(Optimizer):
         super(Adam_C, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
-
-    def getAnalysis(self):
-        return self.g_analysis
-
-    def resetAnalysis(self):
-        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0, 'gc_aggr': 0}
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -495,7 +475,7 @@ class Adam_C(Optimizer):
                     if kappa > 0.:
                         aggr_grad = aggregate(grad, state['critical gradients'], aggr)
                         if state['critical gradients'].is_full():
-                            if grad_norm > state['critical gradients'].pokeSmallest():
+                            if grad_norm > state['critical gradients'].poke_smallest():
                                 self.offline_grad['yes'] += 1
                                 state['critical gradients'][grad_norm] = deepcopy(grad)
                             else:
@@ -530,10 +510,6 @@ class Adam_C(Optimizer):
                         group['eps'])
 
                 step_size = group['lr'] / bias_correction1
-
-                self.g_analysis['gc'] += state['critical gradients'].average_topC()
-                self.g_analysis['count'] += 1
-                self.g_analysis['gt'] += p.grad.data.norm()
 
                 state['critical gradients'].decay()
 
@@ -614,8 +590,8 @@ class RMSprop(Optimizer):
                 # State initialization
                 if len(state) == 0:
                     state['step'] = 0
-                    state['square_avg'] =\
-                        torch.zeros_like(p,memory_format=torch.preserve_format)
+                    state['square_avg'] = \
+                        torch.zeros_like(p, memory_format=torch.preserve_format)
                     if group['momentum'] > 0:
                         state['momentum_buffer'] = \
                             torch.zeros_like(p, memory_format=torch.preserve_format)
@@ -753,7 +729,7 @@ class RMSprop_C(Optimizer):
                     aggr_grad = aggregate(grad, state['critical gradients'], aggr)
                     if kappa > 0.:
                         if state['critical gradients'].is_full():
-                            if grad_norm > state['critical gradients'].pokeSmallest():
+                            if grad_norm > state['critical gradients'].poke_smallest():
                                 self.offline_grad['yes'] += 1
                                 state['critical gradients'][grad_norm] = deepcopy(grad)
                             else:
