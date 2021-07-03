@@ -1,4 +1,4 @@
-from heapq import heapify, heappush, heappop
+from heapq import heapify, heappush, heappushpop, nlargest
 import torch
 from copy import deepcopy
 
@@ -27,10 +27,14 @@ class PriorityDict(dict):
     The 'sorted_iter' method provides a destructive sorted iterator.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, decay_rate=0.5, K=5, *args, **kwargs):
         super(PriorityDict, self).__init__(*args, **kwargs)
-        self._heap = [HeapItem(k, v) for k, v in self.items()]
-        self._rebuild_heap()
+        self.k = K
+        self.decay_rate = decay_rate
+        self._heap = nlargest(self.k, [HeapItem(k, v) for k, v in self.items()])
+        heapify(self._heap)
+        self._sum = sum([it.t for it in self._heap])
+        self._mean = self._sum / len(self._heap) if len(self._heap) > 0 else 0
 
     def size(self):
         return len(self._heap)
@@ -39,36 +43,18 @@ class PriorityDict(dict):
         self.k = K
         self.decay_rate = decay_rate
 
-    def _reorder(self):
-        self._heap = deepcopy(self._heap[-self.k:])
-        in_heap = [it.p for it in self._heap]
-        del_ = [k for k in self.keys() if k not in in_heap]
-        for k in del_:
-            del self[k]
-
-    def _rebuild_heap(self):
-        # >= used as fix for errors in some data
-        self._heap = [it for it in self._heap if it.p >= 0.0]
-        if len(self._heap) > 0:
-            heapify(self._heap)
-            if not self.is_empty() and self.is_full():
-                self._reorder()
-
     def is_empty(self):
-        if len(self._heap) == 0:
-            return True
-        return False
+        return len(self._heap) == 0
 
     def decay(self):
-        self._heap = [HeapItem(self.decay_rate * it.p, it.t) for it in self._heap]
+        for item in self._heap:
+            item.p *= self.decay_rate
 
     def is_full(self):
-        if len(self._heap) < self.k:
-            return False
-        return True
+        return len(self._heap) >= self.k
 
     def average_topC(self):
-        ave = 0.
+        ave = 0.0
         if len(self._heap) > 0:
             ave = sum([it.t.norm() for it in self._heap]) / float(len(self._heap))
         return ave
@@ -83,24 +69,13 @@ class PriorityDict(dict):
         return it.p
 
     def gradmean(self):
-        """Return the sum of top k gradients
-        """
+        """Return the sum of top k gradients"""
 
-        mean = torch.clone(self._heap[0].t)
-        cnt = 1.
-        for it in self._heap[1:]:
-            mean.add_(it.t)
-            cnt += 1.
-        return mean.div_(cnt)
+        return self._mean
 
     def gradsum(self):
-        """Return the sum of top k gradients
-        """
-
-        sum = torch.clone(self._heap[0].t)
-        for it in self._heap[1:]:
-            sum.add_(it.t)
-        return sum
+        """Return the sum of top k gradients"""
+        return self._sum
 
     def __getitem__(self, key):
         return dict(self._heap)
@@ -111,9 +86,14 @@ class PriorityDict(dict):
     def __setitem__(self, key, val):
         # We are not going to remove the previous value from the heap,
         # since this would have a cost O(n).
-
-        self._heap.append(HeapItem(key, val))
-        self._rebuild_heap()
+        if key >= 0:
+            if len(self._heap) >= self.k:
+                removed = heappushpop(self._heap, HeapItem(key, val)).t
+            else:
+                heappush(self._heap, HeapItem(key, val))
+                removed = 0
+            self._sum = self._sum + val - removed
+            self._mean = self._sum / len(self._heap)
 
     def setdefault(self, key, val):
         if key not in self:
@@ -124,10 +104,8 @@ class PriorityDict(dict):
     def update(self, *args, **kwargs):
         # Reimplementing dict.update is tricky -- see e.g.
         # http://mail.python.org/pipermail/python-ideas/2007-May/000744.html
-        # We just rebuild the heap from scratch after passing to super.
 
         super(PriorityDict, self).update(*args, **kwargs)
-        self._rebuild_heap()
 
     def sorted_iter(self):
         """Sorted iterator of the priority dictionary items.
