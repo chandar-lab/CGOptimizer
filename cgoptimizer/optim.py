@@ -36,7 +36,7 @@ def aggregate(d_p, crit_buf, func, kappa=1.0):
     elif "mean" in func:
         crit_buf_ = crit_buf.gradsum()
         crit_buf_.mul_(kappa)
-        return torch.div(torch.add(d_p, crit_buf_), crit_buf.size() + 1)
+        return torch.div(torch.add(d_p, crit_buf_), len(crit_buf) + 1)
     else:
         raise ValueError("Invalid aggregation function")
 
