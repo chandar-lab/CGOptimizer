@@ -36,9 +36,6 @@ class PriorityDict(dict):
         self._sum = sum([it.t for it in self._heap])
         self._mean = self._sum / len(self._heap) if len(self._heap) > 0 else 0
 
-    def size(self):
-        return len(self._heap)
-
     def set_hyper(self, decay_rate=0.5, K=5):
         self.k = K
         self.decay_rate = decay_rate
@@ -52,12 +49,6 @@ class PriorityDict(dict):
 
     def is_full(self):
         return len(self._heap) >= self.k
-
-    def average_topC(self):
-        ave = 0.0
-        if len(self._heap) > 0:
-            ave = sum([it.t.norm() for it in self._heap]) / float(len(self._heap))
-        return ave
 
     def poke_smallest(self):
         """Return the lowest priority.
