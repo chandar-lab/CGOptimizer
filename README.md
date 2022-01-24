@@ -63,6 +63,6 @@ Hyperparameter `decay` indicates the level of decay in the buffer. This modifies
 @misc{mcrae2021memory,
   author    = {McRae, Paul-Aymeric and Parthasarathi, Prasanna and Assran, Mahmoud and Chandar, Sarath},
   title     = {Memory Augmented Optimizers for Deep Learning},
-  year      = {2021},
-  booktitle = {arXiv}
+  year      = {2022},
+  booktitle = {Proceedings of ICLR}
 }
