@@ -161,9 +161,9 @@ class SGD_C(Optimizer):
         if weight_decay < 0.0:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         if not 0.0 <= decay and not 1.0 > decay:
-            raise ValueError("Invalid alpha value: {}".format(decay))
+            raise ValueError("Invalid decay value: {}".format(decay))
         if not 0.0 <= topC:
-            raise ValueError("Invalid alpha value: {}".format(topC))
+            raise ValueError("Invalid topC value: {}".format(topC))
 
         defaults = dict(lr=lr, kappa=kappa, dampening=dampening,
                         weight_decay=weight_decay, momentum=momentum,
@@ -521,9 +521,9 @@ class Adam_C(Optimizer):
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
         if not 0.0 <= decay and not 1.0 > decay:
-            raise ValueError("Invalid alpha value: {}".format(decay))
+            raise ValueError("Invalid decay value: {}".format(decay))
         if not 0.0 <= topC:
-            raise ValueError("Invalid alpha value: {}".format(topC))
+            raise ValueError("Invalid topC value: {}".format(topC))
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, aggr=aggr, amsgrad=amsgrad,
                         kappa=kappa, topC=topC, decay=decay, synced=synced)
@@ -672,9 +672,9 @@ class AdamW_C(Optimizer):
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
         if not 0.0 <= decay and not 1.0 > decay:
-            raise ValueError("Invalid alpha value: {}".format(decay))
+            raise ValueError("Invalid decay value: {}".format(decay))
         if not 0.0 <= topC:
-            raise ValueError("Invalid alpha value: {}".format(topC))
+            raise ValueError("Invalid topC value: {}".format(topC))
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, aggr=aggr, amsgrad=amsgrad,
                         kappa=kappa, topC=topC, decay=decay, synced=synced)
@@ -939,9 +939,9 @@ class RMSprop_C(Optimizer):
         if not 0.0 <= weight_decay:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         if not 0.0 <= decay and not 1.0 > decay:
-            raise ValueError("Invalid alpha value: {}".format(decay))
+            raise ValueError("Invalid decay value: {}".format(decay))
         if not 0.0 <= topC:
-            raise ValueError("Invalid alpha value: {}".format(topC))
+            raise ValueError("Invalid topC value: {}".format(topC))
 
         defaults = dict(lr=lr, momentum=momentum, alpha=alpha, eps=eps,
                         centered=centered, weight_decay=weight_decay,

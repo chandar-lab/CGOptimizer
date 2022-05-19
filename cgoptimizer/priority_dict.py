@@ -46,7 +46,7 @@ class TensorList(dict):
             self._heap_key[self.smallest] = key
             self._heap[self.smallest] = val
         else:
-            if self.curr_k==0:
+            if self.curr_k == 0:
                 self._heap_key = torch.zeros(self.k, device='cuda' if torch.cuda.is_available() else 'cpu', dtype=val.dtype)
                 self._heap = torch.zeros(self.k, *val.shape, device='cuda' if torch.cuda.is_available() else 'cpu', dtype=val.dtype)
             self._heap_key[self.curr_k] = key
@@ -93,7 +93,7 @@ class TensorList(dict):
         return self._heap[torch.argmax(self._heap_key)]
 
     def __getitem__(self, key):
-        return self._heap[self._heap_key==key]
+        return self._heap[self._heap_key == key]
 
     def __len__(self):
         return self.curr_k
