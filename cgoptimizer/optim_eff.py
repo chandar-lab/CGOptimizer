@@ -30,7 +30,7 @@ class SGD_C_eff(Optimizer):
     def __init__(self, params, lr=0.001, kappa=1.0, dampening=0.,
                  weight_decay=0, momentum=0.,
                  decay=0.99, topC=20, aggr='sum',
-                 synced=False, buffer_dtype=None):
+                 synced=True, buffer_dtype=None):
 
         if momentum < 0.0:
             raise ValueError("Invalid momentum value: {}".format(momentum))
@@ -156,7 +156,7 @@ class Adam_C_eff(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  decay=0.99, kappa=1.0, topC=20,
-                 weight_decay=0, amsgrad=False, aggr='mean', synced=False, buffer_dtype=None):
+                 weight_decay=0, amsgrad=False, aggr='mean', synced=True, buffer_dtype=None):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -310,7 +310,7 @@ class AdamW_C_eff(Optimizer):
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  decay=0.99, kappa=1.0, topC=20,
-                 weight_decay=0.01, amsgrad=False, aggr='mean', synced=False, buffer_dtype=None):
+                 weight_decay=0.01, amsgrad=False, aggr='mean', synced=True, buffer_dtype=None):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -462,7 +462,7 @@ class RMSprop_C_eff(Optimizer):
 
     def __init__(self, params, lr=1e-2, alpha=0.99, eps=1e-8, weight_decay=0,
                  momentum=0, centered=False, decay=0.99, kappa=1.0,
-                 topC=20, aggr='mean', synced=False, buffer_dtype=None):
+                 topC=20, aggr='mean', synced=True, buffer_dtype=None):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
