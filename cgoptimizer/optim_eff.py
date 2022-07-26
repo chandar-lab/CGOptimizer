@@ -107,7 +107,7 @@ class SGD_C_eff(Optimizer):
                     d_p = d_p.add(weight_decay, p.data)
                 if kappa != 0:
                     param_state = self.state[p]
-                    if 'critical gradients' not in param_state or param_state['critical gradients']=={}:
+                    if 'critical gradients' not in param_state or len(param_state['critical gradients'])==0:
                         crit_buf = param_state['critical gradients'] = TensorList()
                         crit_buf.setHyper(decay_rate=decay, K=topc, dtype=buffer_dtype)
                         crit_buf.addItem(d_p_norm, deepcopy(d_p))
@@ -237,7 +237,7 @@ class Adam_C_eff(Optimizer):
                 state = self.state[p]
 
                 # State initialization
-                if len(state) == 0 or ('critical gradients' not in state or state['critical gradients']=={}):
+                if len(state) == 0 or ('critical gradients' not in state or len(state['critical gradients'])==0):
                     state['step'] = 0
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p.data)
@@ -392,7 +392,7 @@ class AdamW_C_eff(Optimizer):
                 state = self.state[p]
 
                 # State initialization
-                if len(state) == 0 or ('critical gradients' not in state or state['critical gradients']=={}):
+                if len(state) == 0 or ('critical gradients' not in state or len(state['critical gradients'])==0):
                     state['step'] = 0
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p.data)
@@ -528,7 +528,7 @@ class RMSprop_C_eff(Optimizer):
                 state = self.state[p]
 
                 # State initialization
-                if len(state) == 0 or ('critical gradients' not in state or state['critical gradients']=={}):
+                if len(state) == 0 or ('critical gradients' not in state or len(state['critical gradients'])==0):
                     state['step'] = 0
                     state['square_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     if group['momentum'] > 0:
