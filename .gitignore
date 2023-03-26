@@ -1,31 +1,6 @@
 *__pycache__*
-*.DS_Store
-*.png
-*.csv
-*.pyc
-*.lock
-*.pt
-*Results/*
-*.zip
-Dataset/*
-*.nfs*
-*checkpoint*
-*/Graphs
-**/wandb
-.ipynb_checkpoints/*
-synced.txt
-*.sh
-*mycache/*
-.idea/*
-data/
-db/
-Utils_/
-*.gif
-*logs*
-*.ckpt*
-Figures/*
-utils/
-/utils/
+/build/
+.idea/
 
 # Compiled python modules.
 *.pyc

@@ -36,7 +36,7 @@ def aggregate(d_p, crit_buf, func, kappa=1.0):
     elif "mean" == func:
         crit_buf_ = crit_buf.gradSum()
         crit_buf_.mul_(kappa)
-        return torch.div(torch.add(d_p, crit_buf_), crit_buf.size() + 1)
+        return torch.div(torch.add(d_p, crit_buf_), len(crit_buf) + 1)
     else:
         raise ValueError("Invalid aggregation function")
 
@@ -171,17 +171,9 @@ class SGD_C(Optimizer):
                         aggr=aggr, decay=decay, topC=topC, synced=synced)
 
         super(SGD_C, self).__init__(params, defaults)
-        self.resetOfflineStats()
-        self.resetAnalysis()
 
     def getOfflineStats(self):
         return self.offline_grad
-
-    def getAnalysis(self):
-        return self.g_analysis
-
-    def resetAnalysis(self):
-        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0, 'gc_aggr': 0}
 
     def resetOfflineStats(self):
         self.offline_grad = {'yes': 0, 'no': 0}
@@ -531,8 +523,6 @@ class Adam_C(Optimizer):
                         kappa=kappa, topC=topC, decay=decay, synced=synced)
 
         super(Adam_C, self).__init__(params, defaults)
-        self.resetOfflineStats()
-        self.resetAnalysis()
 
     def getOfflineStats(self):
         return self.offline_grad
@@ -544,12 +534,6 @@ class Adam_C(Optimizer):
         super(Adam_C, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
-
-    def getAnalysis(self):
-        return self.g_analysis
-
-    def resetAnalysis(self):
-        self.g_analysis = {'gt': 0., 'gc': 0., 'count': 0, 'gc_aggr': 0}
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -876,8 +860,8 @@ class RMSprop(Optimizer):
                 # State initialization
                 if len(state) == 0:
                     state['step'] = 0
-                    state['square_avg'] =\
-                        torch.zeros_like(p,memory_format=torch.preserve_format)
+                    state['square_avg'] = \
+                        torch.zeros_like(p, memory_format=torch.preserve_format)
                     if group['momentum'] > 0:
                         state['momentum_buffer'] = \
                             torch.zeros_like(p, memory_format=torch.preserve_format)
